@@ -52,6 +52,9 @@ Item {
   property string selectedId: ""
   property var script: null
   property var lastResult: null
+  // An id asked for before the runner finished resolving (see probeProc
+  // above), replayed the moment resolution completes.
+  property string pendingSelect: ""
 
   function argv(args) {
     var out = [runnerPath]
@@ -91,6 +94,15 @@ Item {
         runnerPath = runnerCandidates[candidateIndex]
         runnerResolved = true
         reload()
+        // A payload-driven open (`{"script": "<id>"}`) can call select()
+        // before the runner finishes resolving, right after a fresh shell
+        // start/restart — select() queues that id in pendingSelect instead
+        // of silently dropping it, and this is where it gets replayed.
+        if (engine.pendingSelect) {
+          var id = engine.pendingSelect
+          engine.pendingSelect = ""
+          engine.select(id)
+        }
       } else {
         tryNextCandidate()
       }
@@ -133,7 +145,11 @@ Item {
     selectedId = id
     script = null
     lastResult = null
-    if (!available || !id) return
+    if (!available) {
+      pendingSelect = id
+      return
+    }
+    if (!id) return
     infoProc.command = argv(["info", id])
     infoProc.running = true
     lastRunProc.command = argv(["last-run", id])
@@ -203,11 +219,24 @@ Item {
     for (var key in values) args.push("--param", key + "=" + values[key])
     var quoted = args.map(function(a) { return engine.shQuote(a) })
     var cmd = engine.shQuote(runnerPath) + " " + quoted.join(" ")
+    engine.terminalRunning = true
     terminalProc.command = ["omarchy-launch-floating-terminal-with-presentation", cmd]
     terminalProc.running = true
   }
 
-  Process { id: terminalProc }
+  // True while the presentation terminal launched by runInTerminal is still
+  // open. The menu uses this to stay open-but-hidden behind it instead of
+  // closing outright, so the user lands back on the same screen — with a
+  // freshly reloaded last-run result — the moment they close the terminal.
+  property bool terminalRunning: false
+
+  Process {
+    id: terminalProc
+    onExited: {
+      engine.terminalRunning = false
+      if (engine.selectedId) engine.select(engine.selectedId)
+    }
+  }
 
   Process {
     id: newProc

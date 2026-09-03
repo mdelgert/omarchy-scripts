@@ -5,6 +5,7 @@ set -Eeuo pipefail
 # @script.title Greet a user
 # @script.description Minimal example showing how declared parameters arrive as shell variables.
 # @script.category Examples
+# @script.icon \uf0eb
 # @script.tags example
 # @param name string required=true default=friend label="Name to greet"
 # @param shout boolean default=false label="ALL CAPS"

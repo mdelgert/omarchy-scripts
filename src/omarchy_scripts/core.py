@@ -38,6 +38,47 @@ ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 DEFAULT_RUN_TIMEOUT = 120
 
+# `@script.icon` is written as a `\uXXXX` escape rather than the literal glyph,
+# same convention as omarchy-recipes: a private-use-area character does not
+# survive every editor/shell/diff round-trip, and a silently emptied icon
+# collapses to blank rather than erroring.
+ICON_ESCAPE_RE = re.compile(r"^\\[uU]([0-9A-Fa-f]{4,6})$")
+
+# Fallback glyph per category, kept in the engine (not each frontend) so every
+# client draws the same icon without reimplementing the table. Chosen from
+# JetBrainsMono Nerd Font, the font Omarchy ships and renders these menus in.
+CATEGORY_ICONS = {
+    "Diagnostics": "\uf188",   # bug
+    "Examples": "\uf0eb",      # lightbulb
+    "Networking": "\uf0e8",    # sitemap
+    "System": "\uf085",        # gears
+    "General": "\uf013",       # cog
+}
+DEFAULT_ICON = "\uf013"        # cog
+
+
+def resolve_icon(declared: str | None, category: str) -> str:
+    """The glyph to draw for a script: what it declared, or its category's.
+
+    Returns a single character, always. Raises when a declared value cannot
+    be one, because an icon that silently renders blank is worse than a
+    refusal — the script looks broken and nothing says why.
+    """
+    raw = (declared or "").strip()
+    if not raw:
+        return CATEGORY_ICONS.get(category, DEFAULT_ICON)
+    match = ICON_ESCAPE_RE.match(raw)
+    if match:
+        code = int(match.group(1), 16)
+        if not (0 < code <= 0x10FFFF):
+            raise ValueError(f"{raw} is not a usable codepoint")
+        return chr(code)
+    # A pasted glyph still works, but the escape is the documented form.
+    if len(raw) == 1:
+        return raw
+    raise ValueError(
+        f"expected a single glyph or a \\uXXXX escape such as \\uf085, got {raw!r}")
+
 
 class ScriptError(RuntimeError):
     """A discovery, validation, or execution problem worth reporting verbatim."""
@@ -59,6 +100,7 @@ class Script:
     title: str
     description: str
     category: str
+    icon: str
     tags: list[str]
     params: list[Param]
     path: str
@@ -70,6 +112,7 @@ class Script:
             "title": self.title,
             "description": self.description,
             "category": self.category,
+            "icon": self.icon,
             "tags": self.tags,
             "params": [p.to_dict() for p in self.params],
             "path": self.path,
@@ -162,11 +205,17 @@ def parse_metadata(text: str, path: Path, source: str) -> Script:
     if not ID_RE.match(script_id):
         raise ScriptError(f"{path}: @script.id {script_id!r} must be lowercase kebab-case")
 
+    try:
+        icon = resolve_icon(meta.get("icon"), meta["category"])
+    except ValueError as exc:
+        raise ScriptError(f"{path}: invalid @script.icon: {exc}") from exc
+
     return Script(
         id=script_id,
         title=meta["title"],
         description=meta["description"],
         category=meta["category"],
+        icon=icon,
         tags=_split_csv(meta.get("tags", "")),
         params=params,
         path=str(path),
@@ -338,6 +387,7 @@ NEW_SCRIPT_TEMPLATE = """#!/usr/bin/env bash
 # @script.title New script
 # @script.description Describe what this does.
 # @script.category {category}
+# @script.icon \\uf120
 set -euo pipefail
 
 echo "Hello from {id}. Edit this file to make it do something real."

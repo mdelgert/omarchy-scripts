@@ -87,3 +87,55 @@ function groupByCategory(scripts) {
   groups.sort(function(a, b) { return a.category.localeCompare(b.category) })
   return groups
 }
+
+function matchesFilter(script, text) {
+  if (!text) return true
+  var haystack = (script.title + " " + script.description + " " + (script.tags || []).join(" ")).toLowerCase()
+  return haystack.indexOf(text) >= 0
+}
+
+// Flatten a script list to the row list the browse view renders: a category
+// header followed by its scripts, keyboard-navigable in one pass. Every row
+// carries the same keys so the delegate never binds undefined.
+function rowsFor(scripts, filterText) {
+  var text = String(filterText || "").toLowerCase()
+  var filtered = (scripts || []).filter(function(s) { return matchesFilter(s, text) })
+  var rows = []
+  var currentCategory = null
+  for (var i = 0; i < filtered.length; i++) {
+    var s = filtered[i]
+    var category = String(s.category || "Uncategorized")
+    if (category !== currentCategory) {
+      currentCategory = category
+      rows.push({ kind: "header", label: category, scriptId: "", icon: "" })
+    }
+    rows.push({
+      kind: "script",
+      label: String(s.title || s.id),
+      detail: String(s.description || ""),
+      scriptId: String(s.id),
+      icon: String(s.icon || "")
+    })
+  }
+  return rows
+}
+
+function firstSelectableRow(rows) {
+  for (var i = 0; i < (rows || []).length; i++) {
+    if (rows[i].kind === "script") return i
+  }
+  return -1
+}
+
+// Move the cursor to the next selectable row, skipping category headers.
+function nextSelectableRow(rows, from, step) {
+  var list = rows || []
+  if (list.length === 0) return -1
+  var i = from
+  for (var guard = 0; guard < list.length; guard++) {
+    i += step
+    if (i < 0 || i >= list.length) return from
+    if (list[i].kind === "script") return i
+  }
+  return from
+}

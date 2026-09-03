@@ -5,6 +5,7 @@ set -Eeuo pipefail
 # @script.title Hostname & network info
 # @script.description Prints hostname, IP addresses, default route, and DNS resolvers.
 # @script.category Diagnostics
+# @script.icon \uf0e8
 # @script.tags network,diagnostics
 
 echo "Hostname: $(hostname)"

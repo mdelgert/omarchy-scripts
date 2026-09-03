@@ -5,6 +5,7 @@ set -Eeuo pipefail
 # @script.title Largest directories
 # @script.description Lists the N largest directories under a given path.
 # @script.category Diagnostics
+# @script.icon \uf1c0
 # @script.tags disk,diagnostics
 # @param path path label="Directory to scan (default: your home directory)"
 # @param count integer default=10 min=1 max=50 label="How many to show"
