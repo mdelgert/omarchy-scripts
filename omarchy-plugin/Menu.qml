@@ -171,11 +171,26 @@ Item {
             elide: Text.ElideRight
           }
 
-          Button {
+          Row {
+            id: headerRightActions
             anchors.right: parent.right
             anchors.verticalCenter: parent.verticalCenter
-            text: "Close"
-            onClicked: root.close()
+            spacing: Style.spacing.md
+
+            Button {
+              visible: root.view === "browse"
+              text: "+ New script"
+              tooltipText: "Scaffolds a script in your workspace and opens it for editing"
+              onClicked: {
+                scriptEngine.newScript()
+                root.close()
+              }
+            }
+
+            Button {
+              text: "Close"
+              onClicked: root.close()
+            }
           }
         }
 
@@ -370,17 +385,19 @@ Item {
               spacing: Style.spacing.md
 
               Button {
-                text: scriptEngine.running ? "Running…" : "Run"
-                enabled: !scriptEngine.running
-                onClicked: scriptEngine.run(scriptEngine.selectedId, root.paramValues)
+                text: "Run"
+                tooltipText: "Runs in a floating terminal, like Omarchy's own updates"
+                onClicked: {
+                  scriptEngine.runInTerminal(scriptEngine.selectedId, root.paramValues)
+                  root.close()
+                }
               }
               Button {
                 text: "Edit"
-                onClicked: scriptEngine.editInTerminal(scriptEngine.script ? scriptEngine.script.path : "")
-              }
-              Button {
-                text: "Run in terminal"
-                onClicked: scriptEngine.runInTerminal(scriptEngine.script ? scriptEngine.script.path : "")
+                onClicked: {
+                  scriptEngine.editInTerminal(scriptEngine.script ? scriptEngine.script.path : "")
+                  root.close()
+                }
               }
               Button {
                 text: "Delete"
@@ -394,16 +411,27 @@ Item {
               spacing: Style.spacing.xs
               visible: !!scriptEngine.lastResult
 
-              Text {
-                textFormat: Text.PlainText
-                text: scriptEngine.lastResult
-                  ? ("Exit " + scriptEngine.lastResult.exit_code
-                      + " · " + scriptEngine.lastResult.duration_seconds + "s"
-                      + " · " + scriptEngine.lastResult.ran_at)
-                  : ""
-                color: (scriptEngine.lastResult && scriptEngine.lastResult.success) ? Color.foreground : Color.urgent
-                font.family: Style.font.family
-                font.pixelSize: Style.font.bodySmall
+              Row {
+                width: parent.width
+                spacing: Style.spacing.md
+
+                Text {
+                  textFormat: Text.PlainText
+                  text: scriptEngine.lastResult
+                    ? ("Last run: exit " + scriptEngine.lastResult.exit_code
+                        + " · " + scriptEngine.lastResult.duration_seconds + "s"
+                        + " · " + scriptEngine.lastResult.ran_at)
+                    : ""
+                  color: (scriptEngine.lastResult && scriptEngine.lastResult.success) ? Color.foreground : Color.urgent
+                  font.family: Style.font.family
+                  font.pixelSize: Style.font.bodySmall
+                }
+
+                Button {
+                  text: "↻ Refresh"
+                  tooltipText: "Reload this result — Run opens in its own terminal, so this doesn't update live"
+                  onClicked: scriptEngine.select(scriptEngine.selectedId)
+                }
               }
 
               BorderSurface {

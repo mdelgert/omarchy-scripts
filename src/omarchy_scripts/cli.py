@@ -40,12 +40,18 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("id")
     rp.add_argument("--param", action="append", default=[], metavar="name=value",
                      help="repeatable: --param name=value")
+    rp.add_argument("--raw", action="store_true",
+                     help="print the script's own stdout/stderr instead of a JSON envelope "
+                          "(for a real terminal, not the GUI)")
 
     lp = sub.add_parser("last-run", help="show the captured output of the most recent run")
     lp.add_argument("id")
 
     ep = sub.add_parser("edit", help="open a script's file in $EDITOR")
     ep.add_argument("id")
+
+    np = sub.add_parser("new", help="scaffold a new script in the workspace")
+    np.add_argument("--category", default="general")
 
     dp = sub.add_parser("delete", help="delete a script's file")
     dp.add_argument("id")
@@ -83,6 +89,10 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "run":
             values = _parse_params(args.param)
             result = core.run(root, args.id, values)
+            if args.raw:
+                sys.stdout.write(result["stdout"])
+                sys.stderr.write(result["stderr"])
+                return result["exit_code"]
             _emit({"result": result})
             return 0 if result["success"] else 1
 
@@ -96,6 +106,11 @@ def main(argv: list[str] | None = None) -> int:
             editor = os.environ.get("EDITOR", "vi")
             os.execvp(editor, [editor, script.path])
             return 0  # unreachable; execvp replaces this process
+
+        if args.command == "new":
+            path = core.create(args.category)
+            _emit({"path": path})
+            return 0
 
         if args.command == "delete":
             path = core.delete(root, args.id)

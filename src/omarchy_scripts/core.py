@@ -331,3 +331,38 @@ def delete(engine_root: Path, script_id: str) -> str:
     script = find(engine_root, script_id)
     Path(script.path).unlink()
     return script.path
+
+
+NEW_SCRIPT_TEMPLATE = """#!/usr/bin/env bash
+# @script.id {id}
+# @script.title New script
+# @script.description Describe what this does.
+# @script.category {category}
+set -euo pipefail
+
+echo "Hello from {id}. Edit this file to make it do something real."
+"""
+
+
+def create(category: str = "general") -> str:
+    """Scaffold a new, editable script in the workspace and return its path.
+
+    Deliberately minimal: one placeholder id/title the user renames while
+    editing, not a naming form. There is no template registry to keep in
+    sync — one string, one file. The caller is expected to open the
+    returned path in an editor immediately.
+    """
+    root = workspace_root() / "scripts"
+    root.mkdir(parents=True, exist_ok=True)
+    n = 1
+    while True:
+        script_id = f"new-script-{n}"
+        path = root / f"{script_id}.sh"
+        if not path.exists():
+            break
+        n += 1
+    path.write_text(
+        NEW_SCRIPT_TEMPLATE.format(id=script_id, category=category), encoding="utf-8"
+    )
+    path.chmod(0o755)
+    return str(path)

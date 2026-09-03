@@ -52,7 +52,6 @@ Item {
   property string selectedId: ""
   property var script: null
   property var lastResult: null
-  property bool running: false
 
   function argv(args) {
     var out = [runnerPath]
@@ -166,64 +165,71 @@ Item {
   }
 
   // ---- run ---------------------------------------------------------------
-
-  function run(id, values) {
-    if (!available || running) return
-    running = true
-    var args = ["run", id]
-    for (var key in values) {
-      args.push("--param")
-      args.push(key + "=" + values[key])
-    }
-    runProc.command = argv(args)
-    runProc.running = true
-  }
-
-  Process {
-    id: runProc
-    stdout: StdioCollector { id: runOut; waitForEnd: true }
-    stderr: StdioCollector { id: runErr; waitForEnd: true }
-    onExited: function(exitCode) {
-      engine.running = false
-      var parsed = Model.parseResponse(runOut.text, engine.schemaVersion)
-      if (!parsed.ok) {
-        engine.engineError = engine.describeFailure(parsed.error, exitCode, runErr.text)
-        return
-      }
-      engine.engineError = ""
-      engine.lastResult = parsed.data.result
-    }
-  }
-
-  // ---- edit / delete -------------------------------------------------------
   //
-  // Edit opens the file in a terminal running $EDITOR — a real editor on the
-  // real file, not a text box in this plugin re-implementing one.
+  // Run always executes through the floating presentation terminal (see
+  // below) so there is exactly one run path, not two competing ones. It
+  // still goes through `omarchy-scripts run`, so parameter validation and
+  // last-run recording stay identical to running it any other way.
+
+  // ---- edit / run-in-terminal / new -----------------------------------------
+  //
+  // These hand off to Omarchy's own helpers instead of each plugin
+  // reinventing "launch a terminal" or "find the user's editor":
+  //   * omarchy-launch-editor   — the same default-editor resolution every
+  //                               other Omarchy surface uses (GUI or TUI).
+  //   * omarchy-launch-floating-terminal-with-presentation — the same
+  //                               floating, focused, logo/done-banner
+  //                               terminal Omarchy's own update flow uses.
+  // Neither is ever built as a shell string from untrusted input: `edit`
+  // passes the path as its own argv element, and the terminal command is
+  // POSIX single-quoted by `shQuote` before being handed to the presentation
+  // helper as one argv element.
+
+  function shQuote(s) {
+    return "'" + String(s).replace(/'/g, "'\\''") + "'"
+  }
 
   function editInTerminal(path) {
     if (!path) return
-    var term = String(Quickshell.env("TERMINAL") || "") || "foot"
-    var editor = String(Quickshell.env("EDITOR") || "") || "vi"
-    editProc.command = [term, "-e", editor, path]
+    editProc.command = ["omarchy-launch-editor", path]
     editProc.running = true
   }
 
   Process { id: editProc }
 
-  function runInTerminal(path) {
-    if (!path) return
-    var term = String(Quickshell.env("TERMINAL") || "") || "foot"
-    // Runs the file directly, then drops to an interactive shell so the user
-    // can inspect what happened or re-run it by hand — the whole point of a
-    // plain file on disk is that you never have to go through this plugin.
-    // `path` is passed as a positional argument ($1), never concatenated into
-    // the -c string, so a path containing spaces or shell metacharacters is
-    // still handled safely.
-    terminalProc.command = [term, "-e", "bash", "-c", 'bash "$1"; exec bash', "_", path]
+  function runInTerminal(id, values) {
+    if (!available || !id) return
+    var args = ["run", id, "--raw"]
+    for (var key in values) args.push("--param", key + "=" + values[key])
+    var quoted = args.map(function(a) { return engine.shQuote(a) })
+    var cmd = engine.shQuote(runnerPath) + " " + quoted.join(" ")
+    terminalProc.command = ["omarchy-launch-floating-terminal-with-presentation", cmd]
     terminalProc.running = true
   }
 
   Process { id: terminalProc }
+
+  Process {
+    id: newProc
+    stdout: StdioCollector { id: newOut; waitForEnd: true }
+    stderr: StdioCollector { id: newErr; waitForEnd: true }
+    onExited: function(exitCode) {
+      var parsed = Model.parseResponse(newOut.text, engine.schemaVersion)
+      if (!parsed.ok) {
+        engine.engineError = engine.describeFailure(parsed.error, exitCode, newErr.text)
+        return
+      }
+      engine.engineError = ""
+      engine.editInTerminal(parsed.data.path)
+      engine.reload()
+    }
+  }
+
+  function newScript() {
+    if (!available) return
+    newProc.command = argv(["new"])
+    newProc.running = true
+  }
 
   function deleteScript(id) {
     if (!available) return
