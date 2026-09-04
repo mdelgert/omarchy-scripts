@@ -37,6 +37,7 @@ PARAM_TYPES = ("string", "integer", "boolean", "choice", "path")
 ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 DEFAULT_RUN_TIMEOUT = 120
+CONFIG_FILENAME = "config.json"
 
 # `@script.icon` is written as a `\uXXXX` escape rather than the literal glyph,
 # same convention as omarchy-recipes: a private-use-area character does not
@@ -104,7 +105,7 @@ class Script:
     tags: list[str]
     params: list[Param]
     path: str
-    source: str  # "bundled" | "workspace"
+    source: str  # "bundled" | "workspace" | "external"
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -133,6 +134,11 @@ def workspace_root() -> Path:
     return base / "omarchy-scripts"
 
 
+def config_path() -> Path:
+    """Settings file storing additive configuration such as extra script dirs."""
+    return workspace_root() / CONFIG_FILENAME
+
+
 def state_root() -> Path:
     """Where last-run output is recorded. Convenience only, never required."""
     override = os.environ.get("OMARCHY_SCRIPTS_STATE")
@@ -140,6 +146,74 @@ def state_root() -> Path:
         return Path(override)
     base = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
     return base / "omarchy-scripts"
+
+
+def _normalize_path(value: str, *, relative_to: Path) -> str:
+    path = Path(value.strip()).expanduser()
+    if not path.is_absolute():
+        path = relative_to / path
+    return str(path.resolve(strict=False))
+
+
+def _load_settings() -> dict[str, Any]:
+    path = config_path()
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except OSError as exc:
+        raise ScriptError(f"{path}: unreadable config: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise ScriptError(
+            f"{path}: invalid config JSON at line {exc.lineno} column {exc.colno}: {exc.msg}"
+        ) from exc
+    if not isinstance(data, dict):
+        raise ScriptError(f"{path}: config must be a JSON object")
+    return data
+
+
+def _configured_dir_strings(settings: dict[str, Any]) -> list[str]:
+    raw_dirs = settings.get("scriptDirs", [])
+    if raw_dirs is None:
+        return []
+    if not isinstance(raw_dirs, list) or any(not isinstance(item, str) for item in raw_dirs):
+        raise ScriptError(f"{config_path()}: scriptDirs must be a JSON array of strings")
+    base = config_path().parent
+    return [_normalize_path(item, relative_to=base) for item in raw_dirs if item.strip()]
+
+
+def configured_script_dirs() -> list[Path]:
+    return [Path(path) for path in _configured_dir_strings(_load_settings())]
+
+
+def list_script_dirs() -> list[str]:
+    return _configured_dir_strings(_load_settings())
+
+
+def _write_settings(settings: dict[str, Any]) -> None:
+    path = config_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
+
+
+def add_script_dir(path_value: str, *, cwd: Path | None = None) -> list[str]:
+    settings = _load_settings()
+    script_dirs = _configured_dir_strings(settings)
+    normalized = _normalize_path(path_value, relative_to=cwd or Path.cwd())
+    if normalized not in script_dirs:
+        script_dirs.append(normalized)
+    settings["scriptDirs"] = script_dirs
+    _write_settings(settings)
+    return script_dirs
+
+
+def remove_script_dir(path_value: str, *, cwd: Path | None = None) -> list[str]:
+    settings = _load_settings()
+    normalized = _normalize_path(path_value, relative_to=cwd or Path.cwd())
+    script_dirs = [path for path in _configured_dir_strings(settings) if path != normalized]
+    settings["scriptDirs"] = script_dirs
+    _write_settings(settings)
+    return script_dirs
 
 
 def _split_csv(value: str) -> list[str]:
@@ -227,14 +301,25 @@ def _bundled_root(engine_root: Path) -> Path:
     return engine_root / "scripts"
 
 
+def _dir_problem(root: Path) -> str | None:
+    if not root.exists():
+        return "configured script directory does not exist"
+    if not root.is_dir():
+        return "configured script directory is not a directory"
+    if not os.access(root, os.R_OK | os.X_OK):
+        return "configured script directory is not readable"
+    return None
+
+
 def discover(engine_root: Path) -> tuple[list[Script], list[dict[str, Any]]]:
-    """Find every script under the bundled and workspace roots.
+    """Find every script under the bundled, workspace, and configured roots.
 
     A script that fails to parse is reported in `problems`, never silently
     dropped — a malformed script is the author's bug and staying invisible is
     how it stays unnoticed. An id collision is reported the same way, with
-    bundled scripts implicitly preferred simply by being scanned first: the
-    second script claiming an id already taken becomes a problem, not a
+    first scanned script preferred by scan order: bundled, then workspace,
+    then configured external directories in the order listed in config.json.
+    Any later script claiming an id already taken becomes a problem, not a
     silent shadow.
     """
     scripts: list[Script] = []
@@ -245,7 +330,17 @@ def discover(engine_root: Path) -> tuple[list[Script], list[dict[str, Any]]]:
         (_bundled_root(engine_root), "bundled"),
         (workspace_root() / "scripts", "workspace"),
     ]
+    try:
+        locations.extend((root, "external") for root in configured_script_dirs())
+    except ScriptError as exc:
+        problems.append({"path": str(config_path()), "error": str(exc)})
+
     for root, source in locations:
+        if source == "external":
+            problem = _dir_problem(root)
+            if problem:
+                problems.append({"path": str(root), "source": source, "error": problem})
+                continue
         if not root.exists():
             continue
         for path in sorted(root.rglob("*.sh")):

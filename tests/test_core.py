@@ -5,13 +5,16 @@ Run with: PYTHONPATH=src python3 -m unittest discover -s tests -v
 
 from __future__ import annotations
 
+import contextlib
+import io
+import json
 import os
 import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
-from omarchy_scripts import core
+from omarchy_scripts import cli, core
 
 
 SIMPLE_SCRIPT = """#!/usr/bin/env bash
@@ -119,6 +122,17 @@ class TestDiscoveryAndRun(unittest.TestCase):
         scripts, problems = core.discover(self.engine_root)
         self.assertEqual(problems, [])
         self.assertEqual(sorted(s.id for s in scripts), ["other-script", "sample-script"])
+        self.assertEqual({s.id: s.source for s in scripts}["other-script"], "workspace")
+
+    def test_external_script_directory_is_discovered_and_tagged(self) -> None:
+        extra = self.tmp / "shared-scripts"
+        external = SIMPLE_SCRIPT.replace("sample-script", "external-script")
+        external = external.replace("Sample script", "External script")
+        core.add_script_dir(str(extra))
+        self._write(extra, "external.sh", external)
+        scripts, problems = core.discover(self.engine_root)
+        self.assertEqual(problems, [])
+        self.assertEqual({s.id: s.source for s in scripts}["external-script"], "external")
 
     def test_duplicate_id_is_reported_as_a_problem_not_silently_shadowed(self) -> None:
         self._write(self.engine_root / "scripts", "a.sh", SIMPLE_SCRIPT)
@@ -127,6 +141,43 @@ class TestDiscoveryAndRun(unittest.TestCase):
         self.assertEqual([s.id for s in scripts], ["sample-script"])
         self.assertEqual(len(problems), 1)
         self.assertIn("duplicate id", problems[0]["error"])
+
+    def test_workspace_wins_before_external_for_duplicate_ids(self) -> None:
+        workspace_script = SIMPLE_SCRIPT.replace("Sample script", "Workspace script")
+        self._write(self.workspace / "scripts", "a.sh", workspace_script)
+        extra = self.tmp / "shared-scripts"
+        core.add_script_dir(str(extra))
+        self._write(extra, "b.sh", SIMPLE_SCRIPT)
+        scripts, problems = core.discover(self.engine_root)
+        self.assertEqual([s.id for s in scripts], ["sample-script"])
+        self.assertEqual(scripts[0].source, "workspace")
+        self.assertEqual(len(problems), 1)
+        self.assertIn(str(self.workspace / "scripts" / "a.sh"), problems[0]["error"])
+
+    def test_external_directory_order_decides_duplicate_precedence(self) -> None:
+        first = self.tmp / "team-one"
+        second = self.tmp / "team-two"
+        first_script = SIMPLE_SCRIPT.replace("Sample script", "First external")
+        second_script = SIMPLE_SCRIPT.replace("Sample script", "Second external")
+        core.add_script_dir(str(first))
+        core.add_script_dir(str(second))
+        self._write(first, "a.sh", first_script)
+        self._write(second, "b.sh", second_script)
+        scripts, problems = core.discover(self.engine_root)
+        self.assertEqual([s.id for s in scripts], ["sample-script"])
+        self.assertEqual(scripts[0].path, str(first / "a.sh"))
+        self.assertEqual(len(problems), 1)
+        self.assertIn(str(first / "a.sh"), problems[0]["error"])
+
+    def test_missing_external_directory_is_reported_as_a_problem(self) -> None:
+        missing = self.tmp / "missing-shared-scripts"
+        core.add_script_dir(str(missing))
+        scripts, problems = core.discover(self.engine_root)
+        self.assertEqual(scripts, [])
+        self.assertEqual(len(problems), 1)
+        self.assertEqual(problems[0]["path"], str(missing))
+        self.assertEqual(problems[0]["source"], "external")
+        self.assertIn("does not exist", problems[0]["error"])
 
     def test_run_executes_script_and_records_last_run(self) -> None:
         self._write(self.engine_root / "scripts", "a.sh", SIMPLE_SCRIPT)
@@ -145,6 +196,64 @@ class TestDiscoveryAndRun(unittest.TestCase):
         path = self._write(self.engine_root / "scripts", "a.sh", SIMPLE_SCRIPT)
         core.delete(self.engine_root, "sample-script")
         self.assertFalse(path.exists())
+
+
+class TestCliConfig(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp())
+        self.engine_root = self.tmp / "engine"
+        (self.engine_root / "scripts").mkdir(parents=True)
+        self.workspace = self.tmp / "workspace"
+        self._old_home = os.environ.get("OMARCHY_SCRIPTS_HOME")
+        self._old_root = os.environ.get("OMARCHY_SCRIPTS_ROOT")
+        os.environ["OMARCHY_SCRIPTS_HOME"] = str(self.workspace)
+        os.environ["OMARCHY_SCRIPTS_ROOT"] = str(self.engine_root)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        for key, value in (("OMARCHY_SCRIPTS_HOME", self._old_home),
+                            ("OMARCHY_SCRIPTS_ROOT", self._old_root)):
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    def _run_cli(self, argv: list[str]) -> tuple[int, dict[str, object], str]:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = cli.main(argv)
+        return code, json.loads(stdout.getvalue()), stderr.getvalue()
+
+    def test_config_add_list_and_remove_dir(self) -> None:
+        extra = self.tmp / "shared"
+        expected = str(extra.resolve())
+
+        code, added, stderr = self._run_cli(["config", "add-dir", str(extra)])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(added["added"], expected)
+        self.assertEqual(added["scriptDirs"], [expected])
+        self.assertEqual(added["configPath"], str(self.workspace / "config.json"))
+        self.assertEqual(
+            json.loads(core.config_path().read_text(encoding="utf-8")),
+            {"scriptDirs": [expected]},
+        )
+
+        code, listed, stderr = self._run_cli(["config", "list-dirs"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(listed["scriptDirs"], [expected])
+
+        code, removed, stderr = self._run_cli(["config", "remove-dir", str(extra)])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(removed["removed"], expected)
+        self.assertEqual(removed["scriptDirs"], [])
+        self.assertEqual(
+            json.loads(core.config_path().read_text(encoding="utf-8")),
+            {"scriptDirs": []},
+        )
 
 
 if __name__ == "__main__":
