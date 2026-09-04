@@ -70,10 +70,13 @@ Try the engine directly from this checkout:
 ./bin/omarchy-scripts list
 ./bin/omarchy-scripts run hostname-info
 ./bin/omarchy-scripts run greet-user --param name=World --param shout=true
+./bin/omarchy-scripts config set devSourcePath /home/you/Source/omarchy-scripts
+./bin/omarchy-scripts run reinstall-from-source
 ```
 
 ## Example scripts
 
+- [`reinstall-from-source.sh`](scripts/examples/reinstall-from-source.sh) reruns `omarchy-plugin/install.sh` from a separate source checkout so an already-installed plugin copy can pull in newer files. Point it at an up-to-date checkout, not the same installed copy it is already running from: targeting itself is a no-op self-copy.
 - [`configure-omarchy-scripts.sh`](scripts/examples/configure-omarchy-scripts.sh) updates key bindings and extra script directories, and prints the resulting configuration.
 - [`greet-user.sh`](scripts/examples/greet-user.sh) shows declared string and boolean parameters, plus the optional argument helper.
 - [`hostname-info.sh`](scripts/examples/hostname-info.sh) is a no-parameter diagnostics script: it prints host, route, address, and DNS information.

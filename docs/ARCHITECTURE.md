@@ -34,10 +34,11 @@ New scripts are created in the workspace. `delete` removes the discovered file d
 
 User-level `omarchy-scripts` preferences live in `${OMARCHY_SCRIPTS_HOME:-${XDG_CONFIG_HOME:-~/.config}/omarchy-scripts}/config.json`, alongside the workspace `scripts/` directory. `OMARCHY_SCRIPTS_HOME` therefore relocates both workspace scripts and the shared settings file together.
 
-The settings file is optional. Today it supports a `keys` object mapping menu actions to plain string key specs plus a `scriptDirs` array for additive discovery:
+The settings file is optional. Today it supports a `keys` object mapping menu actions to plain string key specs, a `scriptDirs` array for additive discovery, and a `devSourcePath` string for development helpers that need a remembered checkout path:
 
 ```json
 {
+  "devSourcePath": "/home/you/Source/omarchy-scripts",
   "keys": {
     "moveUp": "Up",
     "moveDown": "Down",
@@ -54,7 +55,7 @@ The settings file is optional. Today it supports a `keys` object mapping menu ac
 
 Key specs are hand-editable `"Modifier+Modifier+Key"` strings rather than QML enums. Supported modifiers are `Ctrl`, `Alt`, `Shift`, `Super`, and `Meta`; common aliases such as `Enter`/`Return` and `Esc`/`Escape` normalize to one canonical form. Precedence is: built-in defaults first, then any valid `config.json` override for that action. Missing or invalid entries fall back to the built-in default so a typo in one key never breaks the menu. The built-in browse/detail defaults intentionally preserve today's secondary navigation companions too: `open` still accepts `Right` when left at its default, and `back` still accepts `Left` when left at its default, so an empty config behaves the same as the pre-remapping menu.
 
-The generic CLI deliberately parses `config set` values as JSON first, then falls back to the raw argv string, so both `config set scriptDirs '["/path/one"]'` and `config set keys.moveDown j` work naturally. Validation still stays engine-owned: `keys.*` values must parse as key specs, and `scriptDirs` values use the same path normalization as `add-dir`/`remove-dir`, so the settings file cannot be mutated into a shape discovery or key resolution already rejects.
+The generic CLI deliberately parses `config set` values as JSON first, then falls back to the raw argv string, so both `config set scriptDirs '["/path/one"]'` and `config set keys.moveDown j` work naturally. Validation still stays engine-owned: `keys.*` values must parse as key specs, `scriptDirs` values use the same path normalization as `add-dir`/`remove-dir`, and `devSourcePath` must be a non-empty string path normalized relative to the caller's current working directory, so the settings file cannot be mutated into a shape discovery or key resolution already rejects.
 
 ## JSON contract
 
