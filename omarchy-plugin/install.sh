@@ -40,6 +40,17 @@ fi
 }
 printf 'scripts validated\n'
 
+# Materializes config.json with every key-action default and an empty
+# scriptDirs on a fresh install, so "where do my settings live" has a real
+# file to answer it from day one. Safe to re-run on every install/update:
+# it only fills in keys genuinely missing, never touches anything already
+# customized there.
+"$DEST/bin/omarchy-scripts" config init >/dev/null || {
+  printf 'could not materialize config.json\n' >&2
+  exit 1
+}
+printf 'config.json ready\n'
+
 # rescanPlugins re-walks the plugin directories and hot-reloads plugin code.
 # It needs a running shell; outside a session this is expected to fail.
 if command -v omarchy-shell >/dev/null 2>&1; then

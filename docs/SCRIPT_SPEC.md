@@ -78,7 +78,10 @@ bundled first, workspace second, then each `scriptDirs` entry in the listed
 order. The first script claiming an id wins; later collisions are reported as
 problems. The CLI convenience commands `omarchy-scripts config list-dirs`,
 `add-dir`, and `remove-dir` edit the same file, while the GUI remains a
-read-only consumer of discovered scripts rather than a settings editor.
+read-only consumer of discovered scripts rather than a settings editor. See
+"Settings file CLI" below for `config init`, which materializes this file
+with its defaults rather than leaving it to spring into existence on first
+write.
 
 ## Settings file CLI
 
@@ -86,13 +89,20 @@ The same `config.json` file is also exposed through generic scripting
 commands:
 
 ```bash
+omarchy-scripts config init          # materialize/fill in defaults; safe to re-run
 omarchy-scripts config get <dotted.path>
 omarchy-scripts config set <dotted.path> <value>
 omarchy-scripts config unset <dotted.path>
 ```
 
-`config set` parses `<value>` as JSON first and falls back to the raw string
-when JSON parsing fails, so both of these work:
+`config init` writes a fully-populated `config.json` — every `keys.<action>`
+default plus an empty `scriptDirs: []` — the first time it runs, and only
+fills in whatever is still missing on later runs; it never overwrites a
+value already present. Both `omarchy-plugin/install.sh` and the QML plugin's
+first successful run after install call it, so the file is discoverable
+without the user having to change a setting first. `config set` parses
+`<value>` as JSON first and falls back to the raw string when JSON parsing
+fails, so both of these work:
 
 ```bash
 omarchy-scripts config set scriptDirs '["/path/one", "/path/two"]'

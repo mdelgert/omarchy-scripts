@@ -96,6 +96,14 @@ Item {
         runnerPath = runnerCandidates[candidateIndex]
         runnerResolved = true
         reload()
+        // Fire-and-forget: materializes config.json on the first run of a
+        // freshly installed plugin (the `omarchy plugin add` git-clone path
+        // never runs omarchy-plugin/install.sh's own `config init` call, so
+        // this is what actually covers a normal, non-development install).
+        // Idempotent and additive-only — see core.materialize_default_config
+        // — so running it again on every subsequent menu open is harmless.
+        configInitProc.command = argv(["config", "init"])
+        configInitProc.running = true
         // A payload-driven open (`{"script": "<id>"}`) can call select()
         // before the runner finishes resolving, right after a fresh shell
         // start/restart — select() queues that id in pendingSelect instead
@@ -110,6 +118,11 @@ Item {
       }
     }
   }
+
+  // No output is read; a failure here (e.g. a read-only config directory)
+  // is non-fatal and simply means config.json stays implicit, same as
+  // today.
+  Process { id: configInitProc }
 
   Component.onCompleted: resolveRunner()
 

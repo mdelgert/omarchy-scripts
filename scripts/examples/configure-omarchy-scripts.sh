@@ -7,16 +7,16 @@ set -Eeuo pipefail
 # @script.category Examples
 # @script.icon \uf013
 # @script.tags config,example
-# @param moveUp string label="moveUp key (blank leaves unchanged; default resets)"
-# @param moveDown string label="moveDown key (blank leaves unchanged; default resets)"
-# @param open string label="open key (blank leaves unchanged; default resets)"
-# @param quickRun string label="quickRun key (blank leaves unchanged; default resets)"
-# @param back string label="back key (blank leaves unchanged; default resets)"
-# @param reload string label="reload key (blank leaves unchanged; default resets)"
-# @param run string label="run key (blank leaves unchanged; default resets)"
-# @param edit string label="edit key (blank leaves unchanged; default resets)"
-# @param delete string label="delete key (blank leaves unchanged; default resets)"
-# @param scriptDirs string label="Comma-separated extra script directories (blank leaves unchanged; default resets)"
+# @param scriptDirs string label="Extra script directories, comma-separated (blank leaves unchanged; 'default' resets to none)"
+# @param moveUp string label="moveUp key (blank leaves unchanged; built-in default: Up; type 'default' to reset)"
+# @param moveDown string label="moveDown key (blank leaves unchanged; built-in default: Down; type 'default' to reset)"
+# @param open string label="open key (blank leaves unchanged; built-in default: Return; type 'default' to reset)"
+# @param quickRun string label="quickRun key (blank leaves unchanged; built-in default: Shift+Return; type 'default' to reset)"
+# @param back string label="back key (blank leaves unchanged; built-in default: Escape; type 'default' to reset)"
+# @param reload string label="reload key (blank leaves unchanged; built-in default: F5; type 'default' to reset)"
+# @param run string label="run key (blank leaves unchanged; built-in default: R; type 'default' to reset)"
+# @param edit string label="edit key (blank leaves unchanged; built-in default: E; type 'default' to reset)"
+# @param delete string label="delete key (blank leaves unchanged; built-in default: D; type 'default' to reset)"
 
 source "${OMARCHY_SCRIPTS_LIB:?}/scripts.sh"
 script_parse_args "$@"
@@ -85,6 +85,7 @@ print(json.dumps(result, indent=2))
 PY
 }
 
+apply_script_dirs "${SCRIPT_ARG_SCRIPTDIRS-}"
 apply_setting "keys.moveUp" "${SCRIPT_ARG_MOVEUP-}"
 apply_setting "keys.moveDown" "${SCRIPT_ARG_MOVEDOWN-}"
 apply_setting "keys.open" "${SCRIPT_ARG_OPEN-}"
@@ -94,6 +95,5 @@ apply_setting "keys.reload" "${SCRIPT_ARG_RELOAD-}"
 apply_setting "keys.run" "${SCRIPT_ARG_RUN-}"
 apply_setting "keys.edit" "${SCRIPT_ARG_EDIT-}"
 apply_setting "keys.delete" "${SCRIPT_ARG_DELETE-}"
-apply_script_dirs "${SCRIPT_ARG_SCRIPTDIRS-}"
 
 print_configuration

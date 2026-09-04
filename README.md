@@ -74,6 +74,27 @@ Try the engine directly from this checkout:
 ./bin/omarchy-scripts run reinstall-from-source
 ```
 
+## Settings
+
+Preferences (key bindings, extra script directories, and a couple of
+development helper paths) live in one JSON file:
+`${XDG_CONFIG_HOME:-~/.config}/omarchy-scripts/config.json` (relocated
+alongside the workspace `scripts/` directory when `OMARCHY_SCRIPTS_HOME` is
+set). Both `omarchy-plugin/install.sh` and the plugin's first run after
+install materialize this file with every key action's default value and an
+empty `scriptDirs: []`, so it exists and is readable from the start — an
+already-customized file is never overwritten, only filled in where
+something is genuinely missing. Read or edit it directly, or through the
+CLI:
+
+```bash
+./bin/omarchy-scripts config init          # materialize/fill in defaults; safe to re-run
+./bin/omarchy-scripts config get keys
+./bin/omarchy-scripts config set keys.moveDown j
+```
+
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#settings-file) for the full schema.
+
 ## Example scripts
 
 - [`reinstall-from-source.sh`](scripts/examples/reinstall-from-source.sh) reruns `omarchy-plugin/install.sh` from a separate source checkout so an already-installed plugin copy can pull in newer files. Point it at an up-to-date checkout, not the same installed copy it is already running from: targeting itself is a no-op self-copy.

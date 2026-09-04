@@ -12,7 +12,7 @@ bundled scripts/ + workspace scripts/ + configured external dirs/
 
 The Python engine in `src/omarchy_scripts/` is the single source of truth for script discovery, header metadata parsing, parameter validation, execution, last-run recording, creation, deletion, and settings-file reads/writes. It has no QML or Omarchy UI dependency.
 
-`bin/omarchy-scripts` locates the repository-relative `src/`, `lib/`, and `scripts/` directories, then launches the CLI. The CLI is a thin JSON interface over the engine: `list`, `info`, `run`, `last-run`, `edit`, `new`, `delete`, `validate`, and `config` (`list-dirs`/`add-dir`/`remove-dir` plus generic `get`/`set`/`unset`). `edit` replaces the CLI process with `$EDITOR` (falling back to `vi`); the QML frontend uses Omarchy's editor launcher for the same file-oriented action.
+`bin/omarchy-scripts` locates the repository-relative `src/`, `lib/`, and `scripts/` directories, then launches the CLI. The CLI is a thin JSON interface over the engine: `list`, `info`, `run`, `last-run`, `edit`, `new`, `delete`, `validate`, and `config` (`init`/`list-dirs`/`add-dir`/`remove-dir` plus generic `get`/`set`/`unset`). `edit` replaces the CLI process with `$EDITOR` (falling back to `vi`); the QML frontend uses Omarchy's editor launcher for the same file-oriented action.
 
 The plugin under `omarchy-plugin/` is likewise a consumer. `ScriptEngine.qml` never reads a script file, parses comments, validates values, or edits settings; it calls the runner and presents its JSON. QML uses argv arrays for processes, and Python uses `subprocess.run()` with an argv list. Neither layer turns metadata or a parameter into executable shell text.
 
@@ -34,7 +34,9 @@ New scripts are created in the workspace. `delete` removes the discovered file d
 
 User-level `omarchy-scripts` preferences live in `${OMARCHY_SCRIPTS_HOME:-${XDG_CONFIG_HOME:-~/.config}/omarchy-scripts}/config.json`, alongside the workspace `scripts/` directory. `OMARCHY_SCRIPTS_HOME` therefore relocates both workspace scripts and the shared settings file together.
 
-The settings file is optional. Today it supports a `keys` object mapping menu actions to plain string key specs, a `scriptDirs` array for additive discovery, and a `devSourcePath` string for development helpers that need a remembered checkout path:
+The settings file's *contents* are still optional — every key is meaningful missing (falls back to `KEY_ACTION_DEFAULTS`, an empty `scriptDirs`, or no `devSourcePath`) — but the *file itself* is materialized proactively rather than left to spring into existence on first write: `config init` (also called by `omarchy-plugin/install.sh` after installing, and once by the QML plugin on its first successful run after install) writes every `KEY_ACTION_DEFAULTS` entry under `keys` plus an empty `scriptDirs: []` if the file is missing any of them, so `~/.config/omarchy-scripts/config.json` is a real, readable file from the start instead of something a user has to write to before it appears. It never overwrites a value already present — an existing customization always wins over a default being filled in — and is safe to call repeatedly (a plugin update, or opening the menu again, both no-op once nothing is missing).
+
+Today it supports a `keys` object mapping menu actions to plain string key specs, a `scriptDirs` array for additive discovery, and a `devSourcePath` string for development helpers that need a remembered checkout path:
 
 ```json
 {
@@ -61,7 +63,7 @@ The generic CLI deliberately parses `config set` values as JSON first, then fall
 
 Every CLI response is one JSON object whose top-level object starts with `"schemaVersion": 1`. `schemaVersion` versions this machine-readable contract: a frontend must reject a response with a version it does not understand rather than trying to interpret a changed shape. The QML plugin checks that value before using a response.
 
-Successful `list` returns `scripts`, `problems`, the resolved `keys` map, and any non-fatal `settingsProblems`; `info` returns `script`; `run` returns `result`; `last-run` returns `result` (or `null`); `new` returns `path`; `delete` returns `deleted`; and `config` returns `configPath` plus subcommand-specific fields (`scriptDirs`, `added`, `removed`, `path`, and/or `value`). Engine request errors are emitted as `error`. Script execution failures still return a result, but `run` exits non-zero. Runs capture stdout, stderr, exit status, duration, and UTC start time in `${OMARCHY_SCRIPTS_STATE:-${XDG_STATE_HOME:-~/.local/state}/omarchy-scripts}/last-run/`.
+Successful `list` returns `scripts`, `problems`, the resolved `keys` map, and any non-fatal `settingsProblems`; `info` returns `script`; `run` returns `result`; `last-run` returns `result` (or `null`); `new` returns `path`; `delete` returns `deleted`; and `config` returns `configPath` plus subcommand-specific fields (`init` returns `changed`, `keys`, and `scriptDirs`; the rest return `scriptDirs`, `added`, `removed`, `path`, and/or `value`). Engine request errors are emitted as `error`. Script execution failures still return a result, but `run` exits non-zero. Runs capture stdout, stderr, exit status, duration, and UTC start time in `${OMARCHY_SCRIPTS_STATE:-${XDG_STATE_HOME:-~/.local/state}/omarchy-scripts}/last-run/`.
 
 ## Execution
 

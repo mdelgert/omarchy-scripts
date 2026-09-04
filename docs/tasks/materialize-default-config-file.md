@@ -1,7 +1,8 @@
 # Task: Materialize a default config.json on install so it's discoverable
 
-Status: Ready
+Status: Done
 Type: feature
+Claimed by: Copilot (@mdelgert_church) on 2026-09-03T20:27:31-07:00
 
 ## Problem
 
@@ -59,18 +60,18 @@ used to solve this by showing "real" defaults in the form itself).
 
 ## What done looks like
 
-- [ ] A fresh install (no prior `config.json`) results in a real,
+- [x] A fresh install (no prior `config.json`) results in a real,
       readable `config.json` containing every key action's default value
       and an empty `scriptDirs` array, without the user having to change
       anything first.
-- [ ] An existing customized `config.json` is left untouched by whatever
+- [x] An existing customized `config.json` is left untouched by whatever
       mechanism does this (no accidental overwrite of a real user
       customization).
-- [ ] `README.md` states the exact config file path plainly enough that
+- [x] `README.md` states the exact config file path plainly enough that
       "where do my settings live" is answerable by reading the README,
       not the source.
-- [ ] Tests are added or updated where behavior changed.
-- [ ] `make test`, `make lint-qml`, and `make validate` meet the
+- [x] Tests are added or updated where behavior changed.
+- [x] `make test`, `make lint-qml`, and `make validate` meet the
       project's definition of done.
 
 ## Out of scope
@@ -95,4 +96,68 @@ used to solve this by showing "real" defaults in the form itself).
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.
+**Approach**: chose (b) — an explicit `omarchy-scripts config init` CLI
+command — over (a) lazy materialization inside `_load_settings()`.
+Reason: two existing tests
+(`test_configure_script_with_blank_values_only_prints_current_config`
+and `test_configure_script_surfaces_underlying_config_error`) assert
+`config_path()` does **not** exist after a blank-values-only or
+error-surfacing run of `configure-omarchy-scripts.sh`, i.e. reads must
+stay side-effect-free. Lazy materialization on first read would break
+that guarantee; an explicit, opt-in `config init` command keeps it
+intact while still giving a one-command way to materialize the file.
+
+**What changed**:
+- `core.materialize_default_config()`: loads existing settings, fills
+  in any missing `keys.<action>` from `KEY_ACTION_DEFAULTS` and an
+  empty `scriptDirs: []` only if absent, writes the file only if
+  something was actually missing, and never overwrites an existing
+  value. Returns `(settings, changed)`.
+- `omarchy-scripts config init` CLI subcommand calls this and prints
+  `configPath`, `changed`, `keys`, `scriptDirs` as JSON.
+- Wired into `omarchy-plugin/install.sh` (dev-install path) right
+  after the existing `validate` call.
+- Also wired into `omarchy-plugin/ScriptEngine.qml`'s `probeProc`
+  success handler as a fire-and-forget `configInitProc`, run once per
+  plugin session right after the runner resolves. This was a scope
+  decision beyond the task's literal wording (which only mentioned
+  `install.sh`): the real, documented end-user install path is
+  `omarchy plugin add` (a git clone), which never runs
+  `install.sh` — relying on `install.sh` alone would leave most real
+  users without a materialized `config.json`. Adding this second call
+  site closes that gap while remaining harmless/idempotent if
+  `install.sh` already ran it.
+- `README.md` gained a "Settings" section stating the exact path
+  (`~/.config/omarchy-scripts/config.json`, or
+  `$XDG_CONFIG_HOME/omarchy-scripts/config.json`) and documenting
+  `config init`/`get`/`set`.
+- `docs/ARCHITECTURE.md` and `docs/SCRIPT_SPEC.md` updated to describe
+  materialization and the new `init` subcommand.
+- Tests added to `tests/test_core.py` (`TestCliConfig`):
+  materializes full defaults on fresh install, is idempotent once
+  nothing is missing, never overwrites existing customizations, and
+  reports `configPath`.
+
+**Out-of-scope confirmation**: `@param default=` values in
+`configure-omarchy-scripts.sh` remain static, comment-parsed strings
+per `docs/SCRIPT_SPEC.md` — no change made to reflect live current
+settings in the form. That remains a separate, larger
+dynamic-per-invocation-defaults capability, not undertaken here.
+
+**Verification**: `make test` (44/44 pass, including the two
+pre-existing side-effect-free-read tests, unmodified and still
+passing), `make lint-qml` (only the four pre-existing allowed warning
+categories: missing-property, uncreatable-type, unqualified,
+signal-handler-parameters — no new categories), `make validate`
+(0 problems). Live-verified by removing the real
+`~/.config/omarchy-scripts/config.json`, running
+`./omarchy-plugin/install.sh`, and confirming a fully-populated file
+appeared; separately restarted the omarchy shell and reopened the menu
+to confirm the QML `configInitProc` path also materializes on first
+plugin run; and confirmed a pre-existing customized config (partial
+`keys` override plus a custom `scriptDirs` entry) is preserved as-is
+with only the missing keys filled in, via both the CLI and the QML
+path.
+
+**Limitations / follow-ups**: none identified beyond the two
+explicitly out-of-scope items above.

@@ -137,6 +137,7 @@ class TestBundledConfigureScript(unittest.TestCase):
         self.assertEqual(
             [param.name for param in script.params],
             [
+                "scriptDirs",
                 "moveUp",
                 "moveDown",
                 "open",
@@ -146,7 +147,6 @@ class TestBundledConfigureScript(unittest.TestCase):
                 "run",
                 "edit",
                 "delete",
-                "scriptDirs",
             ],
         )
 
@@ -677,6 +677,59 @@ class TestCliConfig(unittest.TestCase):
         self.assertIn("invalid key spec", output["error"])
         self.assertIn("invalid key spec", stderr)
         self.assertFalse(core.config_path().exists())
+
+    def test_config_init_materializes_full_defaults_on_fresh_install(self) -> None:
+        self.assertFalse(core.config_path().exists())
+
+        code, result, stderr = self._run_cli(["config", "init"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertTrue(result["changed"])
+        self.assertEqual(result["keys"], core.KEY_ACTION_DEFAULTS)
+        self.assertEqual(result["scriptDirs"], [])
+        self.assertEqual(
+            json.loads(core.config_path().read_text(encoding="utf-8")),
+            {"keys": core.KEY_ACTION_DEFAULTS, "scriptDirs": []},
+        )
+
+    def test_config_init_is_idempotent_once_nothing_is_missing(self) -> None:
+        self._run_cli(["config", "init"])
+        before = core.config_path().read_text(encoding="utf-8")
+
+        code, result, stderr = self._run_cli(["config", "init"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertFalse(result["changed"])
+        self.assertEqual(core.config_path().read_text(encoding="utf-8"), before)
+
+    def test_config_init_never_overwrites_existing_customizations(self) -> None:
+        existing_dir = self.tmp / "already-there"
+        core._write_settings(
+            {
+                "keys": {"edit": "Ctrl+E", "moveDown": "j"},
+                "scriptDirs": [str(existing_dir)],
+            }
+        )
+
+        code, result, stderr = self._run_cli(["config", "init"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertTrue(result["changed"])  # missing key actions got filled in
+        self.assertEqual(result["keys"]["edit"], "Ctrl+E")
+        self.assertEqual(result["keys"]["moveDown"], "j")
+        self.assertEqual(result["keys"]["moveUp"], core.KEY_ACTION_DEFAULTS["moveUp"])
+        self.assertEqual(result["scriptDirs"], [str(existing_dir)])
+
+        stored = json.loads(core.config_path().read_text(encoding="utf-8"))
+        self.assertEqual(stored["keys"]["edit"], "Ctrl+E")
+        self.assertEqual(stored["keys"]["moveDown"], "j")
+        self.assertEqual(stored["scriptDirs"], [str(existing_dir)])
+
+    def test_materialize_default_config_reports_configPath(self) -> None:
+        code, result, stderr = self._run_cli(["config", "init"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(result["configPath"], str(self.workspace / "config.json"))
 
 
 if __name__ == "__main__":
