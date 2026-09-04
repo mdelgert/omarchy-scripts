@@ -137,6 +137,7 @@ class TestBundledConfigureScript(unittest.TestCase):
         self.assertEqual(
             [param.name for param in script.params],
             [
+                "scriptDirs",
                 "moveUp",
                 "moveDown",
                 "open",
@@ -146,7 +147,6 @@ class TestBundledConfigureScript(unittest.TestCase):
                 "run",
                 "edit",
                 "delete",
-                "scriptDirs",
             ],
         )
 
