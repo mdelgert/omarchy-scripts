@@ -10,6 +10,19 @@ omarchy plugin add https://github.com/mdelgert/omarchy-scripts.git --enable
 
 That clones the repository into `~/.config/omarchy/plugins/`, validates it, and offers to enable it. When it asks for a bar section, pick one — that is where the scripts icon lands.
 
+### Remove
+
+```bash
+omarchy plugin disable io.github.mdelgert.omarchy-scripts   # off, still installed
+omarchy plugin remove io.github.mdelgert.omarchy-scripts --yes
+```
+
+`remove` disables it first. A plugin added with `omarchy plugin add` is a git clone and is deleted outright; one copied in by `omarchy-plugin/install.sh` (the development install, see below) is moved to a hidden backup beside it instead, which you can delete too:
+
+```bash
+rm -rf ~/.config/omarchy/plugins/.io.github.mdelgert.omarchy-scripts.bak.*
+```
+
 Open it from the bar icon, or:
 
 ```bash
@@ -47,19 +60,6 @@ omarchy-restart-shell     # only needed when the plugin's QML changed
 > omarchy plugin disable io.github.mdelgert.omarchy-scripts
 > omarchy plugin enable io.github.mdelgert.omarchy-scripts right
 > ```
-
-### Remove
-
-```bash
-omarchy plugin disable io.github.mdelgert.omarchy-scripts   # off, still installed
-omarchy plugin remove io.github.mdelgert.omarchy-scripts --yes
-```
-
-`remove` disables it first. A plugin added with `omarchy plugin add` is a git clone and is deleted outright; one copied in by `omarchy-plugin/install.sh` (the development install, see below) is moved to a hidden backup beside it instead, which you can delete too:
-
-```bash
-rm -rf ~/.config/omarchy/plugins/.io.github.mdelgert.omarchy-scripts.bak.*
-```
 
 ## Quick start (development)
 
