@@ -1,6 +1,6 @@
 # Task: Script that reinstalls the plugin from a source checkout
 
-Status: Ready
+Status: In progress
 Type: feature
 
 ## Problem
@@ -96,5 +96,7 @@ and `README.md`'s "Quick start (development)" section).
   an explicit value (or fails clearly) when neither is present.
 
 ## Report
+
+- Claimed on branch `task/reinstall-from-source`.
 
 Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.
