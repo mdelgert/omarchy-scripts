@@ -59,6 +59,8 @@ Attribute values, including `default=`, are never shell-expanded. For example, `
 target="${SCRIPT_ARG_PATH:-$HOME}"
 ```
 
+The argv-not-shell rule binds the engine and its frontends: neither ever turns metadata or a value into shell text. A script receives values as plain strings and owns what it does with them. A script whose parameter is *by design* a shell command line (see `scripts/examples/run-command.sh`) may run it with `bash -c "$value"`; that is the same trust model as typing into a terminal, and the script's description should say so.
+
 ## Discovery configuration
 
 The engine always scans its bundled `scripts/` directory plus the default

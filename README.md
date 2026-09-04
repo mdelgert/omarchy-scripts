@@ -109,6 +109,7 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#settings-file) for the full sc
 - [`greet-user.sh`](scripts/examples/greet-user.sh) shows declared string and boolean parameters, plus the optional argument helper.
 - [`hostname-info.sh`](scripts/examples/hostname-info.sh) is a no-parameter diagnostics script: it prints host, route, address, and DNS information.
 - [`largest-directories.sh`](scripts/examples/largest-directories.sh) shows `path` and bounded integer metadata, including a runtime `$HOME` default.
+- [`run-command.sh`](scripts/examples/run-command.sh) runs a user-typed shell command line (a quoted, space-containing `default=`) and pretty-prints JSON output.
 
 ## Documentation
 
