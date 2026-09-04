@@ -1,6 +1,6 @@
 # Task: fix README's example keybinding, and audit all default hotkeys for conflicts
 
-Status: In progress
+Status: Done
 Type: bug
 
 ## Problem
@@ -112,6 +112,49 @@ preferable to keeping unused defaults around if any turn out to conflict.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and
-useful follow-ups. Set Status to Done after merge, then move the
-completed file to `docs/tasks/done/`.
+**Changed:**
+- `README.md`: replaced the `SUPER + F` example with `SUPER + R`, and
+  added a "check for conflicts first" note (`omarchy menu keybindings
+  --print`, or grep the default binds + your own `bindings.lua`) directly
+  above the example.
+- `docs/tasks/persist-default-fullscreen-setting.md`: updated its two
+  `SUPER + F` references to `SUPER + R` for consistency with the new
+  README example (it isn't implemented yet, so this is a same-day
+  correction, not a behavior change).
+
+**Verified `SUPER + R` is free:** extracted every `o.bind(...)`/
+`hl.bind(...)` key-combo string from `/usr/share/omarchy/default/hypr/bindings/*.lua`
+and this machine's own `~/.config/hypr/bindings.lua`. `SUPER + R` (and
+`SUPER + A/B/D/E/I/M/N/Q/U/Y/Z`, for what it's worth) has no default or
+user-level bind anywhere. Previously-considered alternatives
+(`SUPER+SHIFT+F`, `SUPER+ALT+F`, `SUPER+ALT+SHIFT+F`) really are all
+taken, confirming the task file's original note.
+
+**Internal `KEY_ACTION_DEFAULTS` audit** (`moveUp: Up`, `moveDown: Down`,
+`open: Return`, `quickRun: Shift+Return`, `back: Escape`, `reload: F5`,
+`run: R`, `edit: E`, `delete: D`) — checked each for a conflicting
+*bare* (no-modifier) global Hyprland bind, since those are the only kind
+that could fire ahead of a focused QML panel:
+- **No conflicts found** for any of them. Grepping the full Hyprland
+  config tree for bare `F5`, `Escape`, `R`, `E`, `D`, `Up`, `Down`, or
+  `Return` binds turned up only two unrelated bare binds: `F9`
+  (`voxtype` push-to-talk dictation — different key, no overlap) and a
+  bare `RETURN`/arrow-key/`TAB` set that Omarchy registers *only while a
+  screenshot-region selection layer is open* (`utilities.lua`, added on
+  `layer.opened` / presumably removed on close) — a narrow, self-scoped,
+  temporary case that would only matter if the scripts menu and an
+  active screenshot-selection overlay were both trying to claim
+  keyboard focus simultaneously, which isn't a realistic default
+  conflict.
+- Conclusion: the existing internal hotkey defaults do not need
+  changing. No default was removed — every action in
+  `KEY_ACTION_DEFAULTS` already had a distinct, non-conflicting key, so
+  there was nothing to trim per the "minimum keys" request beyond
+  confirming the existing minimal set is in fact conflict-free.
+
+**Limitations / follow-ups:** this audit is a point-in-time check against
+the Omarchy version installed on this machine; Omarchy's own default
+binds can change release to release, so the same conflict-check step
+(now documented in `README.md`) should be re-run before adding any
+*new* global keybind in the future, rather than trusting this snapshot
+indefinitely.

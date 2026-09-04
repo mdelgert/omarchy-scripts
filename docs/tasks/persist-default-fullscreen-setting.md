@@ -7,7 +7,7 @@ Type: feature
 
 Today `fullscreen` is only ever set per-invocation, from the keybind's
 JSON payload (`Menu.qml:50`: `root.fullscreen = !!payload.fullscreen`) —
-e.g. `SUPER + F` binds to `{"fullscreen":true}` per `README.md`. There's
+e.g. `SUPER + R` binds to `{"fullscreen":true}` per `README.md`. There's
 no way to make "always open fullscreen" (or "always open small") the
 *default*, short of rebinding every keybind's payload by hand. Some users
 want the menu full-size every time; others don't; this should be a small,
@@ -68,7 +68,7 @@ fullscreen state, which is the one thing already fully within
 
 - Toggle the config default both ways and confirm a plain (no-payload)
   `shell toggle` call reflects it.
-- Confirm `SUPER + F`'s explicit `{"fullscreen":true}` keybind still works
+- Confirm `SUPER + R`'s explicit `{"fullscreen":true}` keybind still works
   regardless of the configured default.
 
 ## Report

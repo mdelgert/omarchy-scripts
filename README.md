@@ -18,10 +18,18 @@ omarchy-shell shell toggle io.github.mdelgert.omarchy-scripts '{}'
 
 Pass `{"fullscreen": true}` instead of `{}` to open it full-panel, and `{"script": "<id>"}` to jump straight to one script's detail view.
 
-Optionally bind a key in `~/.config/hypr/bindings.lua`:
+Optionally bind a key in `~/.config/hypr/bindings.lua`. Before picking a
+combo, check it isn't already bound — run `omarchy menu keybindings
+--print`, or grep `/usr/share/omarchy/default/hypr/bindings/*.lua` and
+your own `bindings.lua`; a later-defined binding silently shadows an
+earlier one system-wide, with no warning. `SUPER + R` is free as of this
+writing (verified against every default Omarchy bind and this repo's own
+suggestion below — an earlier version of this example used `SUPER + F`,
+which collides with Hyprland's own default "fullscreen the focused
+window" bind and is not usable for this):
 
 ```lua
-o.bind("SUPER + F", "Scripts (fullscreen)",
+o.bind("SUPER + R", "Scripts (fullscreen)",
   "omarchy-shell shell toggle io.github.mdelgert.omarchy-scripts '{\"fullscreen\":true}'")
 ```
 
