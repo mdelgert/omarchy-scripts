@@ -22,19 +22,23 @@ loop.
 session — it is not a CLI flag, and `claude ultrareview` is a deprecated
 alias for `/code-review ultra`.
 
-```
-/code-review <level> [--fix] [--comment] [<PR#>]
-```
+The general shape is `/code-review` followed by a level, then optional
+flags — but always type a real level word, never the word "level" itself,
+and never type any `<`, `>`, `[`, or `]` characters (those just mark
+"required" vs. "optional" in documentation, they are not part of the real
+command):
 
-- **Level:** `low`, `high`, `ultra` (higher effort levels run in the cloud
-  as a background agent).
-- **`--fix`**: apply the findings locally after the review finishes.
-- **`--comment`**: post findings — inline PR comments on GitHub, or one
-  general MR note on GitLab (via `glab`).
-- **Target**: omit for the current branch; pass a PR number to fetch and
-  review that GitHub PR instead (`ultra` only).
+- **Level (required):** one word — `low`, `high`, or `ultra` (higher effort
+  levels run in the cloud as a background agent).
+- **`--fix` (optional):** apply the findings locally after the review
+  finishes.
+- **`--comment` (optional):** post findings — inline PR comments on GitHub,
+  or one general MR note on GitLab (via `glab`).
+- **PR number (optional, `ultra` only):** omit it to review your current
+  branch; type a real number (e.g. `42`) to fetch and review that GitHub PR
+  instead.
 
-Examples:
+Concrete, copy-pasteable examples (exactly what to type):
 
 ```
 /code-review high                  # local high-effort review, current branch
