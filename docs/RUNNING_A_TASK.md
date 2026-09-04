@@ -1,56 +1,38 @@
 # Running a task end to end
 
-This is what **you, the human**, actually do. It is short on purpose. If
-you find yourself typing a branch name, a slug, or a git command to get a
-task started or merged, something has gone wrong — that's the agent's job,
-not yours.
+What **you, the human**, get and do. Nothing more than this.
 
-For what the agent itself does once it picks up a task, see
-`skills/task-workflow/SKILL.md`. You don't need to read that to use this
-process; it's there so the agent doesn't need you to re-explain it.
+## What you get
 
-## The whole process, in practice
+- A notification that a task's pull request is open, with a link.
+- The PR itself already has the implementation, passing
+  `make test`/`make lint-qml`/`./bin/omarchy-scripts validate`, and the
+  task file's Report section filled in.
 
-1. **"Kick off `<task-name>`"** (or "kick off the next Ready task" if you
-   don't have a specific one in mind). That's it — you don't create a
-   branch, a worktree, or type a slug. The agent reads the task file,
-   claims it, implements it, tests it, and opens a pull request.
-2. **Wait.** You'll be told when the PR is open, with a link.
-3. **"Merge `<PR>`"** (or "verify and merge `<PR>`" if you want it actually
-   re-run and exercised before merging, not just diff-reviewed). Either
-   way, this is one thing you say — not a checklist you run yourself.
-4. Done. The agent/assistant moves the task file to `docs/tasks/done/` and
-   cleans up branches/worktrees as part of finishing the merge.
+## What you do
 
-That's the entire loop. Everything below is reference material for when
-you want more control or are curious what's happening under the hood — you
-never have to read it to use the process above.
+1. **"Kick off `<task-name>`"** — starts it. You never create a branch,
+   worktree, or slug yourself.
+2. **"Merge `<PR>`"** — merges it, deletes the branch, moves the task file
+   to `docs/tasks/done/`, and updates its `Status: Done`. One sentence, one
+   action, all of that happens as a result.
+3. If you'd rather it be re-tested before merging instead of just merged on
+   trust, say **"verify and merge `<PR>`"** instead of "merge" — same one
+   sentence, just does the extra check first.
+
+That's the whole process. You are never expected to type git/gh commands,
+branch names, or a task slug — if that's ever what's happening, something
+went off script.
 
 ## One-time setup
 
 - SSH key auth to GitHub already works for pushes — nothing to do.
-- `gh` needs to be authenticated with a repo-scoped token so PRs can be
-  opened/merged — see `docs/GITHUB_TOKEN_SETUP.md`. You only do this once
-  per machine.
+- `gh` needs a repo-scoped token authenticated once per machine so PRs can
+  be opened/merged — see `docs/GITHUB_TOKEN_SETUP.md`.
 
-## If you want to review a PR yourself instead of just saying "merge it"
+## Reference (not something you need to do)
 
-You can always look at it directly, fully online, no terminal required:
-open the PR link in your browser and read the diff there.
-
-If you want it *re-tested*, not just read — say "verify and merge" and
-whoever's driving (agent or assistant) will pull the branch into a
-throwaway location, run `make test`/`make lint-qml`/`./bin/omarchy-scripts
-validate`, exercise the actual change, and clean up afterward. You don't
-need to know the commands for this; asking for it by name is enough.
-
-## What "good" looks like, if you're ever checking up on it
-
-- A claimed task shows up as a pushed `task/<slug>` branch before real
-  implementation work starts — `git branch -a` (or `gh pr list` once a PR
-  exists) shows what's in flight.
-- The PR references the task file's Report section instead of re-explaining
-  everything from scratch.
-- Tests/lint/validate are already green in the PR by the time you're asked
-  to look at it — a PR that skips this isn't done per
-  `docs/AGENT_WORKFLOW.md`'s definition of done.
+For what the agent itself does to earn that "already tested, already
+documented" PR, see `skills/task-workflow/SKILL.md`. For what merging
+actually runs under the hood, see `docs/AGENT_WORKFLOW.md`'s definition of
+done. Neither is required reading to use this process.
