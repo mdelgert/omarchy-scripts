@@ -3,6 +3,7 @@ import Quickshell
 import Quickshell.Wayland
 import qs.Commons
 import qs.Ui
+import "KeyModel.js" as KeyModel
 import "ScriptModel.js" as Model
 
 // Native Omarchy menu for omarchy-scripts.
@@ -147,6 +148,23 @@ Item {
   property bool cursorActive: false
 
   readonly property var rows: Model.rowsFor(scriptEngine.scripts, filterText)
+  readonly property var keyBindings: KeyModel.resolve(scriptEngine.keySpecs)
+
+  function runSelectedScript() {
+    if (!scriptEngine.selectedId) return
+    scriptEngine.runInTerminal(scriptEngine.selectedId, root.paramValues)
+  }
+
+  function editSelectedScript() {
+    if (!scriptEngine.script) return
+    scriptEngine.editInTerminal(scriptEngine.script.path)
+    root.close()
+  }
+
+  function requestDeleteSelectedScript() {
+    if (!scriptEngine.selectedId) return
+    root.confirmingDelete = true
+  }
 
   function setFilter(text) {
     filterText = text
@@ -281,37 +299,46 @@ Item {
             if (confirmDialog.handleKey(event)) event.accepted = true
             return
           }
-          if (event.key === Qt.Key_Escape || event.key === Qt.Key_Left) {
+          if (KeyModel.matches(root.keyBindings.back, event)) {
             if (root.view !== "browse") root.goBrowse()
             else if (root.filterText) root.setFilter("")
             else root.close()
             event.accepted = true
             return
           }
-          if (event.key === Qt.Key_F5) {
+          if (KeyModel.matches(root.keyBindings.reload, event)) {
             scriptEngine.reload()
             if (root.view === "detail") scriptEngine.select(scriptEngine.selectedId)
             event.accepted = true
             return
           }
-          // Below here is browse-list navigation and type-to-filter. In the
-          // detail view those keys belong to the generated form controls.
-          if (root.view !== "browse") return
+          if (root.view === "detail") {
+            if (KeyModel.matches(root.keyBindings.run, event)) {
+              root.runSelectedScript()
+              event.accepted = true
+            } else if (KeyModel.matches(root.keyBindings.edit, event)) {
+              root.editSelectedScript()
+              event.accepted = true
+            } else if (KeyModel.matches(root.keyBindings.delete, event)) {
+              root.requestDeleteSelectedScript()
+              event.accepted = true
+            }
+            return
+          }
 
           if (Util.editsFilter(event, root.filterText)) {
             root.setFilter(Util.editedFilter(event, root.filterText))
             event.accepted = true
-          } else if (event.key === Qt.Key_Up) {
+          } else if (KeyModel.matches(root.keyBindings.moveUp, event)) {
             root.moveCursor(-1)
             event.accepted = true
-          } else if (event.key === Qt.Key_Down) {
+          } else if (KeyModel.matches(root.keyBindings.moveDown, event)) {
             root.moveCursor(1)
             event.accepted = true
-          } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
-                     && (event.modifiers & Qt.ShiftModifier)) {
+          } else if (KeyModel.matches(root.keyBindings.quickRun, event)) {
             root.quickActivateCursor()
             event.accepted = true
-          } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Right) {
+          } else if (KeyModel.matches(root.keyBindings.open, event)) {
             root.activateCursor()
             event.accepted = true
           } else if (event.text && event.text.length === 1
@@ -336,6 +363,7 @@ Item {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.view === "detail"
             text: "‹ Back"
+            tooltipText: "Back (" + KeyModel.bindingHint(root.keyBindings.back) + ")"
             onClicked: root.goBrowse()
           }
 
@@ -422,7 +450,7 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            text: root.filterText ? ("Filter: " + root.filterText) : "Type to filter — ↑/↓ to move, Enter to open, Shift+Enter to run, Esc to close"
+            text: root.filterText ? ("Filter: " + root.filterText) : KeyModel.hintLine(root.keyBindings)
             color: root.filterText ? root.foreground : Qt.darker(root.foreground, 1.4)
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
@@ -444,9 +472,26 @@ Item {
             wrapMode: Text.WordWrap
           }
 
+          Text {
+            id: settingsProblemsLine
+            textFormat: Text.PlainText
+            anchors.top: problemsLine.visible ? problemsLine.bottom : filterLine.bottom
+            anchors.topMargin: Style.spacing.xs
+            anchors.left: parent.left
+            anchors.right: parent.right
+            visible: scriptEngine.settingsProblems.length > 0
+            text: scriptEngine.settingsProblems[0]
+            color: Color.urgent
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.bodySmall
+            wrapMode: Text.WordWrap
+          }
+
           ListView {
             id: resultList
-            anchors.top: problemsLine.visible ? problemsLine.bottom : filterLine.bottom
+            anchors.top: settingsProblemsLine.visible
+              ? settingsProblemsLine.bottom
+              : (problemsLine.visible ? problemsLine.bottom : filterLine.bottom)
             anchors.topMargin: Style.spacing.sm
             anchors.left: parent.left
             anchors.right: parent.right
@@ -539,7 +584,7 @@ Item {
                   anchors.right: parent.right
                   anchors.rightMargin: Style.spacing.rowPaddingX
                   anchors.verticalCenter: parent.verticalCenter
-                  text: "▶"
+                  text: "▶ " + KeyModel.bindingHint(root.keyBindings.quickRun)
                   color: root.cursorActive && root.selectedIndex === row.index
                     ? root.selectedText : root.foreground
                   font.family: root.fontFamily
@@ -553,7 +598,7 @@ Item {
 
                   PanelToolTip {
                     visible: quickRunButton.visible && quickRunButtonHover.hovered
-                    text: "Run now with default values"
+                    text: "Run now with default values (" + KeyModel.bindingHint(root.keyBindings.quickRun) + ")"
                     fontFamily: root.fontFamily
                   }
 
@@ -691,21 +736,56 @@ Item {
             Row {
               spacing: Style.spacing.md
 
-              Button {
-                text: "Run"
-                tooltipText: "Runs in a floating terminal, like Omarchy's own updates — this menu hides itself and reappears when it closes"
-                onClicked: scriptEngine.runInTerminal(scriptEngine.selectedId, root.paramValues)
-              }
-              Button {
-                text: "Edit"
-                onClicked: {
-                  scriptEngine.editInTerminal(scriptEngine.script ? scriptEngine.script.path : "")
-                  root.close()
+              Column {
+                spacing: Style.spacing.xxs
+
+                Button {
+                  text: "Run"
+                  tooltipText: "Runs in a floating terminal, like Omarchy's own updates — this menu hides itself and reappears when it closes"
+                  onClicked: root.runSelectedScript()
+                }
+
+                Text {
+                  textFormat: Text.PlainText
+                  text: KeyModel.bindingHint(root.keyBindings.run)
+                  color: Qt.darker(root.foreground, 1.4)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
                 }
               }
-              Button {
-                text: "Delete"
-                onClicked: root.confirmingDelete = true
+
+              Column {
+                spacing: Style.spacing.xxs
+
+                Button {
+                  text: "Edit"
+                  onClicked: root.editSelectedScript()
+                }
+
+                Text {
+                  textFormat: Text.PlainText
+                  text: KeyModel.bindingHint(root.keyBindings.edit)
+                  color: Qt.darker(root.foreground, 1.4)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
+              }
+
+              Column {
+                spacing: Style.spacing.xxs
+
+                Button {
+                  text: "Delete"
+                  onClicked: root.requestDeleteSelectedScript()
+                }
+
+                Text {
+                  textFormat: Text.PlainText
+                  text: KeyModel.bindingHint(root.keyBindings.delete)
+                  color: Qt.darker(root.foreground, 1.4)
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                }
               }
             }
 
