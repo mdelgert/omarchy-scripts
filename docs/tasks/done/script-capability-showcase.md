@@ -1,6 +1,6 @@
 # Task: add a script capability showcase with defaults
 
-Status: In progress
+Status: Done
 Type: feature
 
 ## Problem
