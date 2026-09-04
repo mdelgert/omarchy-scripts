@@ -1,6 +1,6 @@
 # Task: script that runs a user-input command (default `omarchy commands --json`)
 
-Status: Ready
+Status: In progress
 Type: feature
 
 ## Problem
