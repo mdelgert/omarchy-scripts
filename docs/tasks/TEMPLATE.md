@@ -29,4 +29,4 @@ Manual steps, fixtures, edge cases, or Omarchy-session checks required for this 
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge; move the completed file to `docs/tasks/done/` if it should be kept as task history.
+Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.

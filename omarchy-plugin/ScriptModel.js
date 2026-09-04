@@ -94,6 +94,20 @@ function matchesFilter(script, text) {
   return haystack.indexOf(text) >= 0
 }
 
+// Whether a script can be launched straight from the browse list with no
+// detail-view detour: true for zero params, or when every declared param
+// stops short of `required=true`. A `required=true` param routes to the
+// detail view even if it also carries a metadata default (see
+// SCRIPT_SPEC.md) — the required flag is the author's signal that this
+// value is worth a conscious look, not just something to skip past.
+function canRunWithoutInput(script) {
+  var params = (script && script.params) || []
+  for (var i = 0; i < params.length; i++) {
+    if (String(params[i].required) === "true") return false
+  }
+  return true
+}
+
 // Flatten a script list to the row list the browse view renders: a category
 // header followed by its scripts, keyboard-navigable in one pass. Every row
 // carries the same keys so the delegate never binds undefined.
@@ -107,14 +121,15 @@ function rowsFor(scripts, filterText) {
     var category = String(s.category || "Uncategorized")
     if (category !== currentCategory) {
       currentCategory = category
-      rows.push({ kind: "header", label: category, scriptId: "", icon: "" })
+      rows.push({ kind: "header", label: category, scriptId: "", icon: "", canRunWithoutInput: false })
     }
     rows.push({
       kind: "script",
       label: String(s.title || s.id),
       detail: String(s.description || ""),
       scriptId: String(s.id),
-      icon: String(s.icon || "")
+      icon: String(s.icon || ""),
+      canRunWithoutInput: canRunWithoutInput(s)
     })
   }
   return rows

@@ -33,6 +33,11 @@ Item {
   property string filterText: ""
   property var paramValues: ({})
   property bool confirmingDelete: false
+  // Set by openScript(id, true) — a required-parameter script opened via
+  // the browse list's quick-activate shortcut. Consumed by
+  // tryFocusFirstParam() once scriptEngine.script (fetched asynchronously)
+  // actually has params to focus.
+  property bool pendingFocusFirstParam: false
 
   function open(payloadJson) {
     var payload = ({})
@@ -54,12 +59,48 @@ Item {
   function ping() { return "ok" }
   function refresh() { scriptEngine.reload(); return "ok" }
 
-  function openScript(id) {
+  function openScript(id, focusFirstParam) {
     root.paramValues = ({})
     root.confirmingDelete = false
     scriptEngine.select(id)
     root.view = "detail"
-    Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    if (focusFirstParam) {
+      root.pendingFocusFirstParam = true
+      Qt.callLater(root.tryFocusFirstParam)
+    } else {
+      Qt.callLater(function() { keyCatcher.forceActiveFocus() })
+    }
+  }
+
+  // scriptEngine.script arrives asynchronously (a subprocess round-trip), so
+  // a script opened via quickActivateCursor() may not have its params yet
+  // the moment openScript() returns. This is called right away and again
+  // whenever scriptEngine.script changes (see the Connections below);
+  // pendingFocusFirstParam makes repeat calls harmless no-ops once it's done
+  // its job once.
+  function tryFocusFirstParam() {
+    if (!root.pendingFocusFirstParam) return
+    if (!scriptEngine.script) return
+    root.pendingFocusFirstParam = false
+    if (paramRepeater.count > 0) {
+      var item = paramRepeater.itemAt(0)
+      if (item && item.focusField) item.focusField()
+      else keyCatcher.forceActiveFocus()
+    } else {
+      keyCatcher.forceActiveFocus()
+    }
+  }
+
+  // Runs a script straight from the browse list, with no parameter values —
+  // the engine already applies each param's metadata default when a value
+  // is omitted (see SCRIPT_SPEC.md / core.py's _build_argv), so this is
+  // exactly what "Run" would send for a script canRunWithoutInput() already
+  // confirmed has no `required=true` param. Same runInTerminal machinery as
+  // the detail view's Run button — no second execution path.
+  function quickRunScript(id) {
+    if (!id) return
+    scriptEngine.select(id)
+    scriptEngine.runInTerminal(id, {})
   }
 
   function goBrowse() {
@@ -85,6 +126,14 @@ Item {
 
   ScriptEngine {
     id: scriptEngine
+  }
+
+  // scriptEngine.script populates asynchronously; this catches the case
+  // where openScript(id, true) fires before the info round-trip lands (see
+  // tryFocusFirstParam's own comment for why the flag makes repeats safe).
+  Connections {
+    target: scriptEngine
+    function onScriptChanged() { Qt.callLater(root.tryFocusFirstParam) }
   }
 
   // ---- keyboard-driven navigation -------------------------------------------
@@ -122,6 +171,21 @@ Item {
     if (index < 0 || index >= rows.length) return
     var row = rows[index]
     if (row.kind === "script") root.openScript(row.scriptId)
+  }
+
+  // Shift+Enter / the row's inline "▶" affordance. A no-required-param
+  // script runs immediately (see ScriptModel.canRunWithoutInput); a script
+  // that still needs input can't skip the form, so this instead opens the
+  // same detail view Enter does but lands focus straight in the first
+  // parameter field — one fewer Tab/click than opening it passively.
+  function quickActivateCursor() {
+    if (rows.length === 0) return
+    var index = cursorActive ? selectedIndex : Model.firstSelectableRow(rows)
+    if (index < 0 || index >= rows.length) return
+    var row = rows[index]
+    if (row.kind !== "script") return
+    if (row.canRunWithoutInput) root.quickRunScript(row.scriptId)
+    else root.openScript(row.scriptId, true)
   }
 
   onRowsChanged: {
@@ -243,6 +307,10 @@ Item {
           } else if (event.key === Qt.Key_Down) {
             root.moveCursor(1)
             event.accepted = true
+          } else if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter)
+                     && (event.modifiers & Qt.ShiftModifier)) {
+            root.quickActivateCursor()
+            event.accepted = true
           } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter || event.key === Qt.Key_Right) {
             root.activateCursor()
             event.accepted = true
@@ -354,7 +422,7 @@ Item {
             anchors.top: parent.top
             anchors.left: parent.left
             anchors.right: parent.right
-            text: root.filterText ? ("Filter: " + root.filterText) : "Type to filter — ↑/↓ to move, Enter to open, Esc to close"
+            text: root.filterText ? ("Filter: " + root.filterText) : "Type to filter — ↑/↓ to move, Enter to open, Shift+Enter to run, Esc to close"
             color: root.filterText ? root.foreground : Qt.darker(root.foreground, 1.4)
             font.family: root.fontFamily
             font.pixelSize: Style.font.bodySmall
@@ -407,20 +475,28 @@ Item {
               }
 
               Rectangle {
+                id: scriptRow
                 visible: (row.modelData ? row.modelData.kind : "") === "script"
                 anchors.fill: parent
                 radius: Style.cornerRadius
                 color: root.cursorActive && root.selectedIndex === row.index
                   ? root.selectedBackground : "transparent"
 
+                property bool rowHovered: false
+                readonly property bool showQuickRun: !!(row.modelData && row.modelData.canRunWithoutInput)
+                  && (scriptRow.rowHovered || (root.cursorActive && root.selectedIndex === row.index))
+
                 MouseArea {
                   anchors.fill: parent
+                  hoverEnabled: true
+                  onEntered: scriptRow.rowHovered = true
+                  onExited: scriptRow.rowHovered = false
                   onClicked: root.openScript(row.modelData.scriptId)
                 }
 
                 Row {
                   anchors.left: parent.left
-                  anchors.right: parent.right
+                  anchors.right: quickRunButton.visible ? quickRunButton.left : parent.right
                   anchors.leftMargin: Style.spacing.rowPaddingX
                   anchors.rightMargin: Style.spacing.rowPaddingX
                   anchors.verticalCenter: parent.verticalCenter
@@ -447,6 +523,42 @@ Item {
                     font.family: root.fontFamily
                     font.pixelSize: Style.font.body
                     elide: Text.ElideRight
+                  }
+                }
+
+                // Quick-run affordance: only for scripts that need no user
+                // input (row.canRunWithoutInput — a script with a
+                // `required=true` param never shows this, matching
+                // quickActivateCursor()'s own gating). Hover-revealed for
+                // the mouse, and shown whenever the keyboard cursor sits on
+                // the row so Shift+Enter stays discoverable too.
+                Text {
+                  id: quickRunButton
+                  textFormat: Text.PlainText
+                  visible: scriptRow.showQuickRun
+                  anchors.right: parent.right
+                  anchors.rightMargin: Style.spacing.rowPaddingX
+                  anchors.verticalCenter: parent.verticalCenter
+                  text: "▶"
+                  color: root.cursorActive && root.selectedIndex === row.index
+                    ? root.selectedText : root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.body
+
+                  MouseArea {
+                    anchors.fill: parent
+                    anchors.margins: -Style.spacing.xs
+                    onClicked: root.quickRunScript(row.modelData.scriptId)
+                  }
+
+                  PanelToolTip {
+                    visible: quickRunButton.visible && quickRunButtonHover.hovered
+                    text: "Run now with default values"
+                    fontFamily: root.fontFamily
+                  }
+
+                  HoverHandler {
+                    id: quickRunButtonHover
                   }
                 }
               }
@@ -496,11 +608,24 @@ Item {
 
             // ---- generated parameter form ------------------------------
             Repeater {
+              id: paramRepeater
               model: scriptEngine.script ? scriptEngine.script.params : []
               delegate: Column {
                 required property var modelData
                 width: detailColumn.width
                 spacing: Style.spacing.xs
+
+                // Best-effort focus hand-off for tryFocusFirstParam(): a
+                // plain TextField accepts forceActiveFocus() directly;
+                // NumberField exposes its internal SpinBox via its `field`
+                // alias; Dropdown has no such hook today, so it falls back
+                // to focusing its own root item.
+                function focusField() {
+                  var item = fieldLoader.item
+                  if (!item) return
+                  if (item.field && item.field.forceActiveFocus) item.field.forceActiveFocus()
+                  else if (item.forceActiveFocus) item.forceActiveFocus()
+                }
 
                 Text {
                   textFormat: Text.PlainText
@@ -511,6 +636,7 @@ Item {
                 }
 
                 Loader {
+                  id: fieldLoader
                   width: parent.width
                   sourceComponent: {
                     if (modelData.type === "integer") return integerField
