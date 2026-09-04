@@ -1,6 +1,6 @@
 # Task: script that changes the machine's hostname
 
-Status: Ready
+Status: In progress
 Type: feature
 
 ## Problem
