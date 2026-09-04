@@ -1,6 +1,6 @@
 # Task: fix README's example keybinding, and audit all default hotkeys for conflicts
 
-Status: Ready
+Status: In progress
 Type: bug
 
 ## Problem
