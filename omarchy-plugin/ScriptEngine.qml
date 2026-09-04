@@ -291,4 +291,29 @@ Item {
       if (engine.selectedId) engine.select("")
     }
   }
+
+  // Copies id's file into the workspace under newId (validated and checked
+  // for collisions engine-side; see core.duplicate). On success, opens the
+  // new file for editing the same way newScript() already does.
+  function duplicateScript(id, newId) {
+    if (!available || !id || !newId) return
+    duplicateProc.command = argv(["copy", id, newId])
+    duplicateProc.running = true
+  }
+
+  Process {
+    id: duplicateProc
+    stdout: StdioCollector { id: duplicateOut; waitForEnd: true }
+    stderr: StdioCollector { id: duplicateErr; waitForEnd: true }
+    onExited: function(exitCode) {
+      var parsed = Model.parseResponse(duplicateOut.text, engine.schemaVersion)
+      if (!parsed.ok) {
+        engine.engineError = engine.describeFailure(parsed.error, exitCode, duplicateErr.text)
+        return
+      }
+      engine.engineError = ""
+      engine.editInTerminal(parsed.data.path)
+      engine.reload()
+    }
+  }
 }
