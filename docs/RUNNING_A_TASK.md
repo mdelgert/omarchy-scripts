@@ -1,5 +1,9 @@
 # Running a task end to end
 
+> **Code-review note:** this file documents a human's manual process
+> (what you type/click), not application behavior or a contract — skip it
+> in automated code reviews (`/code-review`), it has nothing to verify.
+
 What **you, the human**, get and do. Nothing more than this.
 
 ## What you get

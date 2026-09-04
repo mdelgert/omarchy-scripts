@@ -76,9 +76,13 @@ gh pr create --base main --head task/<slug> \
   --body "Implements docs/tasks/<slug>.md. See its Report section for details."
 ```
 
+Move the task file from `docs/tasks/<slug>.md` to `docs/tasks/in-review/<slug>.md`
+as part of the PR (this signals the branch has an open PR, not just a claim).
+
 Do not merge your own PR. A human reviews and merges it; only after merge
-does the task file move to `docs/tasks/done/` (a follow-up commit on
-`main`, not part of your PR, unless the reviewer asks you to include it).
+does the task file move from `docs/tasks/in-review/` to `docs/tasks/done/`
+(a follow-up commit on `main`, not part of your PR, unless the reviewer
+asks you to include it).
 
 ## Cleaning up
 

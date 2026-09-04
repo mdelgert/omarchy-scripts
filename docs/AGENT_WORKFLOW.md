@@ -4,14 +4,14 @@ This is a small project. Keep its workflow small too: one protected `main` branc
 
 ## Task files
 
-Each assignable unit of work lives at `docs/tasks/<slug>.md`; the branch name should match its slug. Copy `docs/tasks/TEMPLATE.md` to start one. A task is **Draft** while it is still an idea or lacks enough scope and acceptance criteria to implement safely. Mark it **Ready** when a human or agent can take it without inventing product decisions. Finished files may be moved to `docs/tasks/done/` with their report completed.
+Each assignable unit of work lives at `docs/tasks/<slug>.md`; the branch name should match its slug. Copy `docs/tasks/TEMPLATE.md` to start one. A task is **Draft** while it is still an idea or lacks enough scope and acceptance criteria to implement safely — keep Draft files in `docs/tasks/draft/`. Mark it **Ready** when a human or agent can take it without inventing product decisions; Ready (and claimed/In progress, pre-PR) files live at the top level of `docs/tasks/`. Once a PR is open, move the file to `docs/tasks/in-review/`. Finished files move to `docs/tasks/done/` with their report completed. See `docs/tasks/README.md` for the full folder-to-status table.
 
 ## Completion loop
 
 1. Write or update the task file and mark it Ready.
 2. Create `task/<slug>` from `main`; implement the bounded scope and commit.
-3. Review the diff and open a PR to `main`.
-4. Merge only after the definition of done below is satisfied; then mark the task Done and archive it if desired.
+3. Review the diff and open a PR to `main`; move the task file to `docs/tasks/in-review/`.
+4. Merge only after the definition of done below is satisfied; then mark the task Done and move the file to `docs/tasks/done/`.
 
 ## Definition of done
 
