@@ -33,19 +33,30 @@ locked to a single repository and a minimal set of permissions.
 
 ## Using the token
 
-Two ways to authenticate `gh` with it; prefer the second for anything
-session-scoped (an agent's shell, a one-off terminal) since it doesn't
-touch `gh`'s persistent global config at all:
+**Never paste the raw token into a chat/agent conversation** (including
+this one) — even scoped and short-lived, it would end up stored verbatim in
+that session's transcript, which is unnecessary exposure. Run the commands
+below yourself, directly in a terminal; an agent only ever needs to see the
+*result* of `gh auth status`, never the token value itself.
+
+Two ways to authenticate `gh` with it:
 
 ```bash
-# Option A: persists in gh's own config (~/.config/gh/hosts.yml)
+# Option A (recommended): persists in gh's own config (~/.config/gh/hosts.yml).
+# Do this once, in your own terminal.
 echo '<TOKEN>' | gh auth login --with-token
 
 # Option B: session-scoped only, nothing written to disk, expires when the
-# shell/env goes away. gh (and most git tooling that shells out to gh)
-# reads this automatically.
+# shell/env goes away.
 export GH_TOKEN='<TOKEN>'
 ```
+
+Prefer **Option A** if an agent (not just you) needs to run `gh`/`git`
+commands afterward. An agent's shell tool typically runs each command in a
+fresh process — exported environment variables from one command are gone by
+the next, so `GH_TOKEN` (Option B) only helps *your own* interactive
+terminal, not a series of separate agent-issued commands. `gh`'s on-disk
+config from Option A is what persists across those fresh processes.
 
 Verify it worked and confirm it's actually scoped the way you expect:
 
