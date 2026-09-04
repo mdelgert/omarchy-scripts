@@ -1,6 +1,6 @@
 # Task: add a `configVersion` value to config.json, and a script that reads it
 
-Status: Ready
+Status: In progress
 Type: feature
 
 ## Problem
