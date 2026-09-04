@@ -1,7 +1,8 @@
 # Task: Materialize a default config.json on install so it's discoverable
 
-Status: Ready
+Status: In progress
 Type: feature
+Claimed by: Copilot (@mdelgert_church) on 2026-09-03T20:27:31-07:00
 
 ## Problem
 
