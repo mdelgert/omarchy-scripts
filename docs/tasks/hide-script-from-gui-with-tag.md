@@ -1,6 +1,6 @@
 # Task: a reserved tag that hides a script from the GUI browse list
 
-Status: Ready
+Status: In progress
 Type: feature
 
 ## Problem
