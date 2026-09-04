@@ -61,6 +61,17 @@ omarchy-restart-shell     # only needed when the plugin's QML changed
 > omarchy plugin enable io.github.mdelgert.omarchy-scripts right
 > ```
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Browse list](docs/images/browse-list.png) | ![Script detail](docs/images/script-detail.png) |
+| Browse/filter list, grouped by category. | A script's detail view with its parameters and last-run status. |
+
+![Run output](docs/images/run-output.png)
+
+Run/Edit/Delete/Duplicate actions plus the most recent run's exit code, duration, and captured output.
+
 ## Quick start (development)
 
 The engine has no Python package dependencies beyond Python 3 and Bash. The development installer also needs `rsync`; using the plugin requires an Omarchy session. On Arch/Omarchy, install missing base tools with your normal package manager (for example, `python`, `bash`, and `rsync`). Qt 6's `qmllint` and an Omarchy shell tree are needed only for `make lint-qml`.
