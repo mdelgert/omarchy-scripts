@@ -1,7 +1,8 @@
 # Task: Generic `config set`/`get` for scripting, instead of one-off subcommands per setting
 
-Status: Ready
+Status: In Progress
 Type: feature
+Claimed by: Copilot (@mdelgert_church) on 2026-09-03T19:35:10.729-07:00
 
 ## Problem
 
