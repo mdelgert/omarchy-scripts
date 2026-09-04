@@ -62,7 +62,14 @@ make test
 ./omarchy-plugin/install.sh
 ```
 
-The installer copies this checkout into Omarchy's plugin directory, validates the installed scripts, and asks the running shell to rescan plugins when one is available. It prints the enable/open commands at completion. Use this instead of `omarchy plugin add` only when iterating on the code itself — it installs uncommitted changes too.
+The installer copies this checkout into Omarchy's plugin directory, validates the installed scripts, and asks the running shell to rescan plugins when one is available (then does a full `omarchy-restart-shell`, since some QML changes — structural layout ones especially — don't reliably show up from a rescan alone). It prints the enable/open commands at completion. Use this instead of `omarchy plugin add` only when iterating on the code itself — it installs uncommitted changes too.
+
+To remove a development install, use `omarchy-plugin/uninstall.sh` instead of `omarchy plugin remove`: it also restarts the shell, and by default leaves your workspace scripts and settings (`OMARCHY_SCRIPTS_HOME`/`config.json`) untouched. Pass `--purge-workspace` to delete those too.
+
+```bash
+./omarchy-plugin/uninstall.sh                  # remove the plugin, keep your scripts/config
+./omarchy-plugin/uninstall.sh --purge-workspace # also delete the workspace scripts/config
+```
 
 Try the engine directly from this checkout:
 

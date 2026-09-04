@@ -11,6 +11,9 @@
 #
 # Re-run after editing. Set OMARCHY_SCRIPTS_BIN to point the plugin at a
 # different runner instead, when iterating on the engine alone.
+#
+# See omarchy-plugin/uninstall.sh for the counterpart that removes this
+# dev install again.
 set -Eeuo pipefail
 
 PLUGIN_ID=io.github.mdelgert.omarchy-scripts
@@ -57,6 +60,19 @@ if command -v omarchy-shell >/dev/null 2>&1; then
   omarchy-shell shell rescanPlugins >/dev/null 2>&1 \
     && printf 'shell reloaded\n' \
     || printf 'could not reach omarchy-shell (is the shell running?)\n' >&2
+fi
+
+# rescanPlugins hot-reloads plugin code, but not every change takes effect
+# that way: a structural QML layout change was observed to keep showing its
+# old, stale layout after rescanPlugins alone, only picked up by a full
+# shell restart. Restarting unconditionally after every install removes the
+# guesswork of "did my change actually apply, or do I need to restart by
+# hand?" Same as rescanPlugins above, this needs a live session and is
+# non-fatal outside one.
+if command -v omarchy-restart-shell >/dev/null 2>&1; then
+  omarchy-restart-shell >/dev/null 2>&1 \
+    && printf 'shell restarted\n' \
+    || printf 'could not restart the shell (is a session running?)\n' >&2
 fi
 
 cat <<EOF
