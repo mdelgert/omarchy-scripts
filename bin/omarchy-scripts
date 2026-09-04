@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Locates src/, lib/, and scripts/ relative to itself, so it has to keep
+# sitting inside the checkout (or the plugin mirror, which has the same
+# layout). A wrapper rather than a symlink for that reason.
+set -Eeuo pipefail
+
+root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+
+exec env \
+  PYTHONPATH="$root/src:${PYTHONPATH:-}" \
+  OMARCHY_SCRIPTS_ROOT="${OMARCHY_SCRIPTS_ROOT:-$root}" \
+  python3 -m omarchy_scripts.cli "$@"

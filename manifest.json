@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.mdelgert.omarchy-scripts",
+  "name": "Omarchy Scripts",
+  "version": "0.1.0",
+  "author": "Matthew David Elgert",
+  "license": "MIT",
+  "description": "Browse, edit, delete, and run plain header-comment scripts.",
+  "kinds": [
+    "menu",
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "menu": "omarchy-plugin/Menu.qml",
+    "barWidget": "omarchy-plugin/BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Scripts",
+    "description": "Opens the scripts browser",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
