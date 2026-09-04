@@ -110,14 +110,14 @@ omarchy-scripts config set <dotted.path> <value>
 omarchy-scripts config unset <dotted.path>
 ```
 
-`config init` writes a fully-populated `config.json` — every `keys.<action>`
-default plus an empty `scriptDirs: []` — the first time it runs, and only
-fills in whatever is still missing on later runs; it never overwrites a
-value already present. Both `omarchy-plugin/install.sh` and the QML plugin's
-first successful run after install call it, so the file is discoverable
-without the user having to change a setting first. `config set` parses
-`<value>` as JSON first and falls back to the raw string when JSON parsing
-fails, so both of these work:
+`config init` writes a fully-populated `config.json` — `configVersion: 1`,
+every `keys.<action>` default, plus an empty `scriptDirs: []` — the first
+time it runs, and only fills in whatever is still missing on later runs; it
+never overwrites a value already present. Both `omarchy-plugin/install.sh`
+and the QML plugin's first successful run after install call it, so the
+file is discoverable without the user having to change a setting first.
+`config set` parses `<value>` as JSON first and falls back to the raw
+string when JSON parsing fails, so both of these work:
 
 ```bash
 omarchy-scripts config set scriptDirs '["/path/one", "/path/two"]'
@@ -126,6 +126,11 @@ omarchy-scripts config set keys.moveDown j
 
 Today the documented settings schema is:
 
+- `configVersion`: integer stamping this file's own persisted shape, distinct
+  from the CLI's separate `schemaVersion` JSON-output-contract stamp
+  (`docs/ARCHITECTURE.md`). Filled in as `1` by `config init` if missing;
+  never overwritten. Nothing migrates off it yet — it exists for a future
+  change to this file's shape to key off of.
 - `scriptDirs`: JSON array of strings. The generic setter normalizes each path
   the same way `config add-dir`/`remove-dir` do, and those older commands are
   now just convenience wrappers for the same underlying read/write mechanism.
@@ -138,8 +143,10 @@ Today the documented settings schema is:
   `docs/ARCHITECTURE.md`; invalid values are rejected and not written.
 
 Unknown top-level config keys may still exist for forward compatibility, but
-only `scriptDirs`, `devSourcePath`, and `keys` are part of the documented v1
-schema today.
+only `configVersion`, `scriptDirs`, `devSourcePath`, and `keys` are part of
+the documented v1 schema today. `scripts/examples/show-config.sh` is a
+read-only counterpart to `configure-omarchy-scripts.sh` that prints the
+current `config.json` contents from inside the menu.
 
 ## Worked examples
 

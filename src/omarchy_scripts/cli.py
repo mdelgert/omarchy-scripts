@@ -166,6 +166,7 @@ def main(argv: list[str] | None = None) -> int:
                 _emit({
                     "configPath": str(core.config_path()),
                     "changed": changed,
+                    "configVersion": settings.get("configVersion", core.CONFIG_VERSION),
                     "keys": settings.get("keys", {}),
                     "scriptDirs": core.list_script_dirs(),
                 })

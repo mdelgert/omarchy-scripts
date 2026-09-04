@@ -1,6 +1,6 @@
 # Task: add a `configVersion` value to config.json, and a script that reads it
 
-Status: Ready
+Status: Done
 Type: feature
 
 ## Problem
@@ -77,6 +77,61 @@ call it `configVersion` to keep the two clearly distinct.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and
-useful follow-ups. Set Status to Done after merge, then move the
-completed file to `docs/tasks/done/`.
+**What changed:**
+
+- `core.py`: added `CONFIG_VERSION = 1` (distinct constant from the
+  existing `SCHEMA_VERSION`, with a comment explicitly pointing out the
+  difference). `materialize_default_config()` now fills in
+  `configVersion` the same "only if missing" way it already fills in
+  `keys`/`scriptDirs` — an existing value (however weird) is never
+  touched on a later `config init`.
+- `cli.py`: `config init`'s JSON response now also reports the resulting
+  `configVersion` alongside `changed`/`keys`/`scriptDirs`.
+- `scripts/examples/show-config.sh` (new): a plain read-only script (no
+  `@param`s) that shells out to the same `omarchy-scripts` runner
+  (`list`, `config get configVersion`, `config get scriptDirs`) and
+  pretty-prints `configPath`, `configVersion`, `keys`, and `scriptDirs`
+  — modeled directly on `configure-omarchy-scripts.sh`'s existing
+  `print_configuration` helper, so it goes through the CLI rather than
+  reading `~/.config/omarchy-scripts/config.json` directly.
+- `tests/test_core.py`: updated the fresh-install/idempotent
+  `config init` assertions to expect `configVersion: 1`, and added
+  `test_config_init_never_overwrites_existing_configVersion` (hand-sets
+  `configVersion: 999`, re-runs `config init`, confirms it survives
+  untouched).
+- `docs/ARCHITECTURE.md`/`docs/SCRIPT_SPEC.md`: documented `configVersion`
+  alongside `keys`/`scriptDirs`/`devSourcePath` in the settings-file
+  shape and schema list, and noted it's distinct from `schemaVersion`
+  (the CLI's JSON-output-contract stamp, unrelated and untouched).
+
+**Decisions:**
+
+- Went through the CLI (`config get`) in `show-config.sh` rather than
+  reading `config.json` directly, per the task's stated preference —
+  keeps path-resolution logic solely owned by `core.py`.
+- No migration logic was added (out of scope per the task) —
+  `configVersion` is purely a stamp for a future change to key off of.
+
+**Verification:**
+
+- `make test` (52/52, including the two updated tests and the one new
+  test), `make lint-qml` (only the four pre-existing allowed warning
+  categories), `make validate` (11 scripts, 0 problems — confirms the
+  new `show-config.sh` parses cleanly).
+- Manually confirmed via the CLI directly: a fresh `config init` in a
+  scratch `OMARCHY_SCRIPTS_HOME` produces `configVersion: 1`; hand-setting
+  it to `999` and re-running `config init` leaves it at `999`.
+- Verified live, not just by reading code: ran `omarchy-plugin/install.sh`
+  to sync this branch into the actual dev-installed plugin
+  (`~/.config/omarchy/plugins/io.github.mdelgert.omarchy-scripts`), which
+  itself calls `config init` — confirmed the live
+  `~/.config/omarchy-scripts/config.json` picked up `configVersion: 1`.
+  Confirmed `show-config` is discovered with zero parse problems by the
+  live installed runner, and running it
+  (`bin/omarchy-scripts run show-config`) via that same live install
+  prints output that matches the actual file on disk.
+
+**Limitations / follow-ups:**
+
+- No consumer reads `configVersion` yet (by design) — it will only
+  matter once a real shape migration is needed.
