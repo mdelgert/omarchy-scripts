@@ -7,16 +7,16 @@ set -Eeuo pipefail
 # @script.category Examples
 # @script.icon \uf013
 # @script.tags config,example
-# @param scriptDirs string label="Extra script directories, comma-separated (blank leaves unchanged; 'default' resets to none)"
-# @param moveUp string label="moveUp key (blank leaves unchanged; built-in default: Up; type 'default' to reset)"
-# @param moveDown string label="moveDown key (blank leaves unchanged; built-in default: Down; type 'default' to reset)"
-# @param open string label="open key (blank leaves unchanged; built-in default: Return; type 'default' to reset)"
-# @param quickRun string label="quickRun key (blank leaves unchanged; built-in default: Shift+Return; type 'default' to reset)"
-# @param back string label="back key (blank leaves unchanged; built-in default: Escape; type 'default' to reset)"
-# @param reload string label="reload key (blank leaves unchanged; built-in default: F5; type 'default' to reset)"
-# @param run string label="run key (blank leaves unchanged; built-in default: R; type 'default' to reset)"
-# @param edit string label="edit key (blank leaves unchanged; built-in default: E; type 'default' to reset)"
-# @param delete string label="delete key (blank leaves unchanged; built-in default: D; type 'default' to reset)"
+# @param scriptDirs string placeholder="(none)" label="Extra script directories, comma-separated (blank leaves unchanged; 'default' resets to none)"
+# @param moveUp string placeholder="Up" label="moveUp key (blank leaves unchanged; type 'default' to reset)"
+# @param moveDown string placeholder="Down" label="moveDown key (blank leaves unchanged; type 'default' to reset)"
+# @param open string placeholder="Return" label="open key (blank leaves unchanged; type 'default' to reset)"
+# @param quickRun string placeholder="Shift+Return" label="quickRun key (blank leaves unchanged; type 'default' to reset)"
+# @param back string placeholder="Escape" label="back key (blank leaves unchanged; type 'default' to reset)"
+# @param reload string placeholder="F5" label="reload key (blank leaves unchanged; type 'default' to reset)"
+# @param run string placeholder="R" label="run key (blank leaves unchanged; type 'default' to reset)"
+# @param edit string placeholder="E" label="edit key (blank leaves unchanged; type 'default' to reset)"
+# @param delete string placeholder="D" label="delete key (blank leaves unchanged; type 'default' to reset)"
 
 source "${OMARCHY_SCRIPTS_LIB:?}/scripts.sh"
 script_parse_args "$@"

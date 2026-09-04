@@ -696,6 +696,15 @@ Item {
                   Component {
                     id: stringField
                     TextField {
+                      // placeholderText only shows a greyed-out hint when
+                      // `text` is empty; it is never part of `text` itself,
+                      // so it never reaches setParamValue. This lets a param
+                      // document its built-in default (e.g. a settings
+                      // script's blank-leaves-unchanged field) without that
+                      // default being silently submitted on Run the way a
+                      // real `default=` attribute would be (see @param
+                      // `placeholder=` in docs/SCRIPT_SPEC.md).
+                      placeholderText: modelData.placeholder || ""
                       function setInitial(p) { text = root.paramValue(p) }
                       onTextChanged: root.setParamValue(modelData.name, text)
                     }

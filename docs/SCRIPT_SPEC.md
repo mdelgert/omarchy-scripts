@@ -47,6 +47,8 @@ Attributes are whitespace-separated `key=value` pairs parsed with Python's `shle
 
 For an `integer`, the engine requires a value accepted by Python `int()`. For a `boolean`, it requires exactly `true` or `false`. `min`, `max`, `label`, and other attributes are emitted for a frontend but are not enforced by the v1 engine.
 
+`placeholder=<value>` is one such frontend-only attribute: the QML menu shows it as greyed-out hint text inside an empty string field, purely cosmetic. Unlike `default=`, a `placeholder=` value is never part of what gets submitted when the field is left blank — use it to show a script's built-in default (or an example value) without it being silently applied on Run, which matters for a param whose own script logic treats "blank" as "leave unchanged" (see `scripts/examples/configure-omarchy-scripts.sh`).
+
 ### Attribute values are data, not shell
 
 Attribute values, including `default=`, are never shell-expanded. For example, `default="$HOME"` becomes the literal string `$HOME`; it does not become the user's home directory. When a default needs runtime shell behavior, the script must implement it itself after parsing argv:
