@@ -1,6 +1,6 @@
 # Task: capture application screenshots for documentation
 
-Status: Ready
+Status: In progress
 Type: chore
 
 ## Problem
