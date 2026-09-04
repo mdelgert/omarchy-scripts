@@ -481,6 +481,31 @@ class TestDiscoveryAndRun(unittest.TestCase):
         recorded = core.last_run("sample-script")
         self.assertEqual(recorded["script_id"], "sample-script")
 
+    def test_run_tolerates_non_utf8_output(self) -> None:
+        script = SIMPLE_SCRIPT.replace('echo "hello ${1:-}"', "printf 'hello \\xff\\xfe\\n'")
+        self._write(self.engine_root / "scripts", "a.sh", script)
+        result = core.run(self.engine_root, "sample-script", {})
+        self.assertTrue(result["success"])
+        self.assertTrue(result["stdout"].startswith("hello "))
+        self.assertIsNotNone(core.last_run("sample-script"))
+
+    def test_run_timeout_is_recorded_as_text(self) -> None:
+        script = SIMPLE_SCRIPT.replace('echo "hello ${1:-}"', 'echo started; sleep 5')
+        self._write(self.engine_root / "scripts", "a.sh", script)
+        old = os.environ.get("OMARCHY_SCRIPTS_RUN_TIMEOUT")
+        os.environ["OMARCHY_SCRIPTS_RUN_TIMEOUT"] = "1"
+        try:
+            result = core.run(self.engine_root, "sample-script", {})
+        finally:
+            if old is None:
+                os.environ.pop("OMARCHY_SCRIPTS_RUN_TIMEOUT", None)
+            else:
+                os.environ["OMARCHY_SCRIPTS_RUN_TIMEOUT"] = old
+        self.assertEqual(result["exit_code"], 124)
+        self.assertIsInstance(result["stdout"], str)
+        self.assertIn("timed out", result["stderr"])
+        self.assertEqual(core.last_run("sample-script")["exit_code"], 124)
+
     def test_run_rejects_unknown_param(self) -> None:
         self._write(self.engine_root / "scripts", "a.sh", SIMPLE_SCRIPT)
         with self.assertRaises(core.ScriptError):

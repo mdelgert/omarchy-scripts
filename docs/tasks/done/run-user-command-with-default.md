@@ -49,8 +49,9 @@ commands exist, in JSON form, without leaving the menu.
 - [x] `docs/SCRIPT_SPEC.md`/`docs/ARCHITECTURE.md` updated only if this
       surfaces a new pattern worth documenting (e.g. "a script whose
       param is itself a shell command line is expected to use a shell to
-      run it" — otherwise no doc changes are needed). No doc changes were
-      needed: this is a plain `string` param, no new engine-level pattern.
+      run it" — otherwise no doc changes are needed). Documented in
+      `docs/SCRIPT_SPEC.md` ("Attribute values are data, not shell") during
+      post-merge review; the script is also listed in `README.md`.
 
 ## Out of scope
 

@@ -127,6 +127,7 @@ CATEGORY_ICONS = {
     "Examples": "\uf0eb",      # lightbulb
     "Networking": "\uf0e8",    # sitemap
     "System": "\uf085",        # gears
+    "Utility": "\uf120",      # terminal
     "General": "\uf013",       # cog
 }
 DEFAULT_ICON = "\uf013"        # cog
@@ -744,6 +745,7 @@ def run(engine_root: Path, script_id: str, values: dict[str, str]) -> dict[str, 
             argv,
             capture_output=True,
             text=True,
+            errors="replace",
             env=env,
             timeout=int(os.environ.get("OMARCHY_SCRIPTS_RUN_TIMEOUT", str(DEFAULT_RUN_TIMEOUT))),
         )
@@ -751,8 +753,9 @@ def run(engine_root: Path, script_id: str, values: dict[str, str]) -> dict[str, 
         stdout, stderr = proc.stdout, proc.stderr
     except subprocess.TimeoutExpired as e:
         exit_code = 124
-        stdout = e.stdout or ""
-        stderr = (e.stderr or "") + "\n[omarchy-scripts] timed out"
+        # TimeoutExpired carries raw bytes even under text=True.
+        stdout = _decode_output(e.stdout)
+        stderr = _decode_output(e.stderr) + "\n[omarchy-scripts] timed out"
 
     duration = time.time() - started
     result = {
@@ -766,6 +769,15 @@ def run(engine_root: Path, script_id: str, values: dict[str, str]) -> dict[str, 
     }
     _record_last_run(script_id, result)
     return result
+
+
+def _decode_output(data: bytes | str | None) -> str:
+    """Partial output as text, whatever type subprocess handed back."""
+    if data is None:
+        return ""
+    if isinstance(data, bytes):
+        return data.decode("utf-8", errors="replace")
+    return data
 
 
 def _record_last_run(script_id: str, result: dict[str, Any]) -> None:
