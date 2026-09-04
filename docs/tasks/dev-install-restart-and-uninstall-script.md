@@ -1,6 +1,6 @@
 # Task: Full shell restart after install, plus a matching uninstall.sh
 
-Status: Ready
+Status: In progress
 Type: feature
 
 ## Problem
