@@ -28,6 +28,7 @@ rsync -a --delete \
   --exclude '.qml-imports/' \
   --exclude '__pycache__/' \
   --exclude '*.pyc' \
+  --exclude 'CLAUDE.md' \
   "$SRC/" "$DEST/"
 
 printf 'installed %s -> %s\n' "$PLUGIN_ID" "$DEST"
