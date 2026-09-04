@@ -80,6 +80,38 @@ problems. The CLI convenience commands `omarchy-scripts config list-dirs`,
 `add-dir`, and `remove-dir` edit the same file, while the GUI remains a
 read-only consumer of discovered scripts rather than a settings editor.
 
+## Settings file CLI
+
+The same `config.json` file is also exposed through generic scripting
+commands:
+
+```bash
+omarchy-scripts config get <dotted.path>
+omarchy-scripts config set <dotted.path> <value>
+omarchy-scripts config unset <dotted.path>
+```
+
+`config set` parses `<value>` as JSON first and falls back to the raw string
+when JSON parsing fails, so both of these work:
+
+```bash
+omarchy-scripts config set scriptDirs '["/path/one", "/path/two"]'
+omarchy-scripts config set keys.moveDown j
+```
+
+Today the documented settings schema is:
+
+- `scriptDirs`: JSON array of strings. The generic setter normalizes each path
+  the same way `config add-dir`/`remove-dir` do, and those older commands are
+  now just convenience wrappers for the same underlying read/write mechanism.
+- `keys`: JSON object whose values are string key specs. A dotted path such as
+  `keys.moveDown` targets one action override. Key specs use the same
+  `"Modifier+Modifier+Key"` syntax and validation described by
+  `docs/ARCHITECTURE.md`; invalid values are rejected and not written.
+
+Unknown top-level config keys may still exist for forward compatibility, but
+only `scriptDirs` and `keys` are part of the documented v1 schema today.
+
 ## Worked examples
 
 ### `greet-user.sh`

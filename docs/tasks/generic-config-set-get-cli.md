@@ -1,7 +1,8 @@
 # Task: Generic `config set`/`get` for scripting, instead of one-off subcommands per setting
 
-Status: Ready
+Status: Done
 Type: feature
+Claimed by: Copilot (@mdelgert_church) on 2026-09-03T19:35:10.729-07:00
 
 ## Problem
 
@@ -85,18 +86,18 @@ Design constraints:
 
 ## What done looks like
 
-- [ ] `config set keys.moveDown j` persists and is picked up by the menu
+- [x] `config set keys.moveDown j` persists and is picked up by the menu
       after a reload/restart, exactly like hand-editing the file today.
-- [ ] `config set` on a `keys.*` path rejects an invalid key spec with a
+- [x] `config set` on a `keys.*` path rejects an invalid key spec with a
       clear error and does not write the bad value to disk.
-- [ ] `config get`/`unset` work for both `keys.*` and `scriptDirs`.
-- [ ] `add-dir`/`remove-dir`/`list-dirs` still work unchanged and are
+- [x] `config get`/`unset` work for both `keys.*` and `scriptDirs`.
+- [x] `add-dir`/`remove-dir`/`list-dirs` still work unchanged and are
       documented as a convenience layer over the generic mechanism.
-- [ ] Tests cover: set + get round-trip for both a `keys.*` path and
+- [x] Tests cover: set + get round-trip for both a `keys.*` path and
       `scriptDirs`, unset reverting to default, and a rejected invalid
       value.
-- [ ] `make test`, `make lint-qml`, and `make validate` pass.
-- [ ] `docs/SCRIPT_SPEC.md` documents the generic commands.
+- [x] `make test`, `make lint-qml`, and `make validate` pass.
+- [x] `docs/SCRIPT_SPEC.md` documents the generic commands.
 
 ## Out of scope
 
@@ -116,5 +117,27 @@ tested.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and
-useful follow-ups.
+- Added generic engine helpers in `core.py` for dotted-path
+  `get_config_value()`, `set_config_value()`, and `unset_config_value()`
+  backed by the existing `_load_settings()` / `_write_settings()` pair.
+  `scriptDirs` now validates and normalizes through that shared path, and
+  `add-dir` / `remove-dir` were reduced to convenience wrappers over the
+  same generic setter instead of keeping separate write logic.
+- Added CLI subcommands `omarchy-scripts config get/set/unset` in
+  `cli.py`. `config set` parses argv values as JSON first and falls back to
+  the raw string, so both scalar keybindings and JSON arrays work from
+  shell scripts without callers needing per-setting special cases.
+- Validation remains explicit and minimal, matching current settings:
+  `keys.*` values must be valid key specs and `scriptDirs` must be a JSON
+  array of strings. Unknown future keys still round-trip structurally
+  without adding a larger schema system.
+- Extended tests to cover generic get/set/unset, JSON parsing for
+  `scriptDirs`, default restoration after unsetting `keys.moveDown`, and
+  rejected invalid key specs that do not write to disk.
+- Updated `docs/ARCHITECTURE.md` and `docs/SCRIPT_SPEC.md` to document the
+  new CLI surface and clarify that `add-dir` / `remove-dir` are wrappers
+  over the shared config mechanism.
+- Verified with `make test`, `make lint-qml`, `make validate`, direct
+  `./bin/omarchy-scripts validate`, and manual CLI exercises for generic
+  keys, generic scalar values, and the existing directory-management
+  commands under an isolated `OMARCHY_SCRIPTS_HOME`.

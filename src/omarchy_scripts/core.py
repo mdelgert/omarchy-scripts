@@ -291,24 +291,139 @@ def _write_settings(settings: dict[str, Any]) -> None:
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 
 
-def add_script_dir(path_value: str, *, cwd: Path | None = None) -> list[str]:
+def _split_config_key_path(path: str) -> tuple[str, ...]:
+    raw = str(path).strip()
+    if not raw:
+        raise ScriptError("config path must not be empty")
+    parts = tuple(piece.strip() for piece in raw.split("."))
+    if any(not piece for piece in parts):
+        raise ScriptError(f"invalid config path {path!r}: empty segment")
+    return parts
+
+
+def _setting_at_path(settings: dict[str, Any], path: tuple[str, ...]) -> Any:
+    current: Any = settings
+    for index, piece in enumerate(path):
+        if not isinstance(current, dict):
+            joined = ".".join(path[:index])
+            raise ScriptError(
+                f"config path {'.'.join(path)!r} cannot descend into non-object value at {joined!r}"
+            )
+        if piece not in current:
+            return None
+        current = current[piece]
+    return current
+
+
+def _validated_setting_value(path: tuple[str, ...], value: Any, *, cwd: Path) -> Any:
+    if path == ("scriptDirs",):
+        if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+            raise ScriptError("scriptDirs must be a JSON array of strings")
+        return [_normalize_path(item, relative_to=cwd) for item in value if item.strip()]
+
+    if path and path[0] == "keys":
+        if len(path) == 1:
+            if not isinstance(value, dict):
+                raise ScriptError("keys must be a JSON object mapping action names to key specs")
+            validated: dict[str, str] = {}
+            for action, spec in value.items():
+                if not isinstance(action, str):
+                    raise ScriptError("keys must use string action names")
+                if not isinstance(spec, str):
+                    raise ScriptError(f"keys.{action} must be a string key spec")
+                parse_key_spec(spec)
+                validated[action] = spec
+            return validated
+
+        if not isinstance(value, str):
+            raise ScriptError(f"{'.'.join(path)} must be a string key spec")
+        parse_key_spec(value)
+        return value
+
+    return value
+
+
+def get_config_value(path_value: str) -> Any:
     settings = _load_settings()
-    script_dirs = _configured_dir_strings(settings)
+    path = _split_config_key_path(path_value)
+    if path == ("scriptDirs",):
+        return _configured_dir_strings(settings)
+    return _setting_at_path(settings, path)
+
+
+def set_config_value(path_value: str, value: Any, *, cwd: Path | None = None) -> Any:
+    settings = _load_settings()
+    path = _split_config_key_path(path_value)
+    validated = _validated_setting_value(path, value, cwd=cwd or Path.cwd())
+
+    if len(path) == 1:
+        settings[path[0]] = validated
+    else:
+        current: dict[str, Any] = settings
+        for piece in path[:-1]:
+            next_value = current.get(piece)
+            if next_value is None:
+                next_value = {}
+                current[piece] = next_value
+            elif not isinstance(next_value, dict):
+                raise ScriptError(
+                    f"config path {'.'.join(path)!r} cannot descend into non-object value at {piece!r}"
+                )
+            current = next_value
+        current[path[-1]] = validated
+
+    _write_settings(settings)
+    return get_config_value(path_value)
+
+
+def unset_config_value(path_value: str) -> bool:
+    settings = _load_settings()
+    path = _split_config_key_path(path_value)
+
+    chain: list[tuple[dict[str, Any], str]] = []
+    current: Any = settings
+    for piece in path[:-1]:
+        if not isinstance(current, dict):
+            raise ScriptError(
+                f"config path {'.'.join(path)!r} cannot descend into non-object value at {piece!r}"
+            )
+        next_value = current.get(piece)
+        if next_value is None:
+            return False
+        chain.append((current, piece))
+        current = next_value
+
+    if not isinstance(current, dict):
+        raise ScriptError(
+            f"config path {'.'.join(path)!r} cannot descend into non-object value at {path[-1]!r}"
+        )
+    if path[-1] not in current:
+        return False
+
+    del current[path[-1]]
+    for parent, key in reversed(chain):
+        child = parent.get(key)
+        if isinstance(child, dict) and not child:
+            del parent[key]
+        else:
+            break
+
+    _write_settings(settings)
+    return True
+
+
+def add_script_dir(path_value: str, *, cwd: Path | None = None) -> list[str]:
+    script_dirs = list_script_dirs()
     normalized = _normalize_path(path_value, relative_to=cwd or Path.cwd())
     if normalized not in script_dirs:
         script_dirs.append(normalized)
-    settings["scriptDirs"] = script_dirs
-    _write_settings(settings)
-    return script_dirs
+    return set_config_value("scriptDirs", script_dirs, cwd=cwd or Path.cwd())
 
 
 def remove_script_dir(path_value: str, *, cwd: Path | None = None) -> list[str]:
-    settings = _load_settings()
     normalized = _normalize_path(path_value, relative_to=cwd or Path.cwd())
-    script_dirs = [path for path in _configured_dir_strings(settings) if path != normalized]
-    settings["scriptDirs"] = script_dirs
-    _write_settings(settings)
-    return script_dirs
+    script_dirs = [path for path in list_script_dirs() if path != normalized]
+    return set_config_value("scriptDirs", script_dirs, cwd=cwd or Path.cwd())
 
 
 def parse_key_spec(spec: str) -> ParsedKeySpec:
