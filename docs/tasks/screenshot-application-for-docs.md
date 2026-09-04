@@ -1,6 +1,6 @@
 # Task: capture application screenshots for documentation
 
-Status: In progress
+Status: Done
 Type: chore
 
 ## Problem
@@ -36,13 +36,13 @@ Hyprland session.
 
 ## What done looks like
 
-- [ ] `docs/images/` contains one PNG per captured view, each reasonably
+- [x] `docs/images/` contains one PNG per captured view, each reasonably
       sized (target: comfortably under 500KB per image; crop/downscale
       if `grim`'s raw output is larger).
-- [ ] `README.md` has a "Screenshots" section that renders each image
+- [x] `README.md` has a "Screenshots" section that renders each image
       with a short caption, verified by previewing the rendered
       markdown.
-- [ ] `make test`, `make lint-qml`, and `make validate` meet the
+- [x] `make test`, `make lint-qml`, and `make validate` meet the
       project's definition of done (expected to be unaffected by this
       doc-only change, but still run to confirm no regression).
 
@@ -69,4 +69,44 @@ Hyprland session.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.
+Captured real screenshots in the live Hyprland/quickshell session (this
+required actual desktop access per the Testing notes; a sandboxed
+subagent could not have completed this task).
+
+- Installed this task's plugin build (`omarchy-plugin/install.sh`),
+  enabled it, and opened the menu via its bar icon/`omarchy-shell shell
+  toggle`.
+- Captured full-desktop PNGs with `grim`, then cropped each down to just
+  the menu card with `magick`/`convert` (raw desktop captures were
+  ~2.6MB at 2560x1537; cropped images are 64–147KB, all comfortably
+  under the 500KB target).
+- `docs/images/browse-list.png` — the initial browse/list view, grouped
+  by category (`Development`, `Diagnostics`, `Examples`, `Networking`).
+- `docs/images/script-detail.png` — the `greet-user` example's
+  detail/parameter view: description, source path, both declared
+  `@param` inputs, and the action row.
+- `docs/images/run-output.png` — a tighter crop of the same detail
+  view's lower half after running the script, showing the
+  Run/Edit/Delete/Duplicate row and the "Last run: exit 0 · … ·
+  <timestamp>" status plus captured stdout (`HELLO, FRIEND!`).
+- No distinct settings/config screen exists in the QML: `Menu.qml` only
+  ever shows an inline "settings problems" warning line (config parse
+  errors), not a separate view, so no fourth image was produced. Actual
+  script *execution* also isn't a separate in-menu state — `runInTerminal`
+  launches Omarchy's own floating presentation terminal and hides the
+  menu (`Menu.qml:275`, `ScriptEngine.qml:233-241`) while the script
+  runs, then the menu reappears already showing the refreshed "Last run"
+  result. `run-output.png` documents that refreshed result, which is the
+  meaningful, screenshot-able "output" state; the floating terminal
+  itself is transient system chrome, not part of this plugin's own UI.
+- Added a "Screenshots" section to `README.md` (right after Install,
+  before Quick start) with a two-up table for browse-list/script-detail
+  and a full-width run-output image, each with a one-line caption.
+- Restored the live session's installed plugin back to `main`'s build
+  afterward so the user's normal session isn't left on this task's dev
+  build.
+- `make test`, `make lint-qml` (only the 4 documented baseline warning
+  categories present, no new ones), and `make validate` all pass;
+  doc/image-only change as expected.
+
+Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.
