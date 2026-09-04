@@ -59,8 +59,42 @@ gh pr view <number>                   # read the diff/description
 
 ## Step 4 — Review and merge
 
-You review the diff yourself — the agent does not merge its own PR. Once
-satisfied:
+You review the diff yourself — the agent does not merge its own PR. Before
+merging, verify the change actually works, not just that the diff reads
+well:
+
+```bash
+# 1. Read the diff and the task file's Report section together.
+gh pr view <number> --json title,body,commits,additions,deletions
+gh pr diff <number>
+
+# 2. Pull the PR branch into a throwaway detached worktree — don't touch
+#    your own working tree/branch to do this.
+git fetch origin
+git worktree add /tmp/pr<number>-check origin/task/<slug> --detach
+cd /tmp/pr<number>-check
+
+# 3. Run the same checks the agent should already have run.
+make test
+make lint-qml
+./bin/omarchy-scripts validate
+
+# 4. Manually exercise whatever the task actually changed — don't just
+#    trust green tests for anything user-facing. E.g. for a CLI/config
+#    change:
+#      ./bin/omarchy-scripts config add-dir /tmp/some-dir
+#      ./bin/omarchy-scripts list
+#    For a QML/UI change, this instead means a live
+#    omarchy-restart-shell + grim/wtype pass (see
+#    docs/tasks/done/keyboard-driven-menu-navigation.md's Report for what
+#    that looked like).
+
+# 5. Clean up the throwaway worktree regardless of outcome.
+cd /home/mdelgert/Source/omarchy-scripts
+git worktree remove /tmp/pr<number>-check --force
+```
+
+Only after that:
 
 ```bash
 gh pr checks <number>                 # if CI is wired up
