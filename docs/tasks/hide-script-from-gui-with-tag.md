@@ -122,9 +122,17 @@ every script the engine returns, unconditionally.
   when a search term would otherwise match its own tag text. Removed the
   temporary script and reinstalled/restarted from `main`'s build
   afterward so the live session was left in its normal state.
+- Added a permanent, bundled `scripts/examples/hidden-example.sh`
+  (`@script.tags example,hidden`) so this behavior has a lasting, real
+  example to install/reload and verify by hand, not just a throwaway
+  local test script — its own description says plainly that seeing it in
+  the browse list means the feature is broken. Re-verified the same way
+  after adding it: present in `omarchy-scripts list`/runnable via
+  `run hidden-example`, absent from the live menu's browse list even
+  when filtering by "hidden".
 - `make test` (49/49, no new/changed Python tests — none applicable),
   `make lint-qml` (same 4 documented pre-existing warning categories, no
-  new one), `make validate` (0 problems, 9 scripts).
+  new one), `make validate` (0 problems, 10 scripts).
 
 **Limitations / follow-ups:**
 - No GUI affordance to toggle `hidden` from within the menu itself was
