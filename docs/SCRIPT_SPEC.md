@@ -55,6 +55,31 @@ Attribute values, including `default=`, are never shell-expanded. For example, `
 target="${SCRIPT_ARG_PATH:-$HOME}"
 ```
 
+## Discovery configuration
+
+The engine always scans its bundled `scripts/` directory plus the default
+workspace directory at
+`${OMARCHY_SCRIPTS_HOME:-${XDG_CONFIG_HOME:-~/.config}/omarchy-scripts}/scripts`.
+Users may add more local script roots with the JSON settings file at
+`${OMARCHY_SCRIPTS_HOME:-${XDG_CONFIG_HOME:-~/.config}/omarchy-scripts}/config.json`:
+
+```json
+{
+  "scriptDirs": [
+    "/path/one",
+    "/path/two"
+  ]
+}
+```
+
+Those configured directories are additive only: they do not replace the
+bundled or default workspace roots. Discovery precedence is scan order:
+bundled first, workspace second, then each `scriptDirs` entry in the listed
+order. The first script claiming an id wins; later collisions are reported as
+problems. The CLI convenience commands `omarchy-scripts config list-dirs`,
+`add-dir`, and `remove-dir` edit the same file, while the GUI remains a
+read-only consumer of discovered scripts rather than a settings editor.
+
 ## Worked examples
 
 ### `greet-user.sh`
