@@ -245,6 +245,132 @@ class TestBundledConfigureScript(unittest.TestCase):
         self.assertFalse(core.config_path().exists())
 
 
+class TestBundledReinstallScript(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp())
+        self.repo_root = Path(__file__).resolve().parents[1]
+        self.workspace = self.tmp / "workspace"
+        self.state = self.tmp / "state"
+        self._old_home = os.environ.get("OMARCHY_SCRIPTS_HOME")
+        self._old_state = os.environ.get("OMARCHY_SCRIPTS_STATE")
+        self._old_root = os.environ.get("OMARCHY_SCRIPTS_ROOT")
+        os.environ["OMARCHY_SCRIPTS_HOME"] = str(self.workspace)
+        os.environ["OMARCHY_SCRIPTS_STATE"] = str(self.state)
+        os.environ["OMARCHY_SCRIPTS_ROOT"] = str(self.repo_root)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        for key, value in (
+            ("OMARCHY_SCRIPTS_HOME", self._old_home),
+            ("OMARCHY_SCRIPTS_STATE", self._old_state),
+            ("OMARCHY_SCRIPTS_ROOT", self._old_root),
+        ):
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    def _run_cli(self, argv: list[str]) -> tuple[int, dict[str, object], str]:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = cli.main(argv)
+        return code, json.loads(stdout.getvalue()), stderr.getvalue()
+
+    def _fake_source_checkout(self, *, exit_code: int = 0) -> Path:
+        root = self.tmp / f"source-{exit_code}"
+        install_dir = root / "omarchy-plugin"
+        install_dir.mkdir(parents=True)
+        install_path = install_dir / "install.sh"
+        install_path.write_text(
+            "#!/usr/bin/env bash\n"
+            "set -Eeuo pipefail\n"
+            "echo \"fake install from ${BASH_SOURCE[0]}\"\n"
+            "echo \"fake install stderr\" >&2\n"
+            f"exit {exit_code}\n",
+            encoding="utf-8",
+        )
+        install_path.chmod(0o755)
+        return root
+
+    def test_reinstall_script_metadata_and_cli_visibility(self) -> None:
+        path = self.repo_root / "scripts" / "examples" / "reinstall-from-source.sh"
+        script = core.parse_metadata(path.read_text(encoding="utf-8"), path, "bundled")
+        self.assertEqual(script.id, "reinstall-from-source")
+        self.assertEqual(script.category, "Development")
+        self.assertEqual([param.name for param in script.params], ["path"])
+        self.assertEqual(script.params[0].type, "path")
+
+        code, listed, stderr = self._run_cli(["list"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertIn(
+            "reinstall-from-source",
+            [script["id"] for script in listed["scripts"]],
+        )
+
+        code, validated, stderr = self._run_cli(["validate"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(validated["problems"], [])
+
+    def test_reinstall_script_validates_missing_install_sh_clearly(self) -> None:
+        bad_source = self.tmp / "not-a-checkout"
+        bad_source.mkdir()
+
+        result = core.run(self.repo_root, "reinstall-from-source", {"path": str(bad_source)})
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["exit_code"], 1)
+        self.assertIn(
+            f"source checkout must contain omarchy-plugin/install.sh: {bad_source.resolve()}",
+            result["stderr"],
+        )
+
+    def test_reinstall_script_requires_path_when_no_default_is_configured(self) -> None:
+        result = core.run(self.repo_root, "reinstall-from-source", {})
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["exit_code"], 1)
+        self.assertIn(
+            "path is required unless config devSourcePath is set",
+            result["stderr"],
+        )
+
+    def test_reinstall_script_reports_nonexistent_source_directory_clearly(self) -> None:
+        missing_source = self.tmp / "missing-checkout"
+
+        result = core.run(self.repo_root, "reinstall-from-source", {"path": str(missing_source)})
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["exit_code"], 1)
+        self.assertIn(
+            f"source checkout directory does not exist: {missing_source.resolve(strict=False)}",
+            result["stderr"],
+        )
+
+    def test_reinstall_script_uses_configured_default_path(self) -> None:
+        source_checkout = self._fake_source_checkout()
+        core.set_config_value("devSourcePath", str(source_checkout))
+
+        result = core.run(self.repo_root, "reinstall-from-source", {})
+
+        self.assertTrue(result["success"], msg=result["stderr"])
+        self.assertIn("Using configured devSourcePath", result["stdout"])
+        self.assertIn("fake install from", result["stdout"])
+        self.assertIn("fake install stderr", result["stderr"])
+
+    def test_reinstall_script_propagates_target_exit_code(self) -> None:
+        source_checkout = self._fake_source_checkout(exit_code=7)
+
+        result = core.run(self.repo_root, "reinstall-from-source", {"path": str(source_checkout)})
+
+        self.assertFalse(result["success"])
+        self.assertEqual(result["exit_code"], 7)
+        self.assertIn("fake install from", result["stdout"])
+        self.assertIn("fake install stderr", result["stderr"])
+
+
 class TestDiscoveryAndRun(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp())
@@ -425,9 +551,22 @@ class TestDiscoveryAndRun(unittest.TestCase):
         )
         self.assertEqual(core.get_config_value("scriptDirs"), value)
 
+    def test_set_dev_source_path_normalizes_string_path(self) -> None:
+        value = core.set_config_value("devSourcePath", "checkouts/../source", cwd=self.tmp)
+        self.assertEqual(
+            value,
+            str((self.tmp / "source").resolve(strict=False)),
+        )
+        self.assertEqual(core.get_config_value("devSourcePath"), value)
+
     def test_invalid_key_config_value_is_rejected_without_writing(self) -> None:
         with self.assertRaisesRegex(core.ScriptError, "invalid key spec"):
             core.set_config_value("keys.moveDown", "Shift+")
+        self.assertFalse(core.config_path().exists())
+
+    def test_invalid_dev_source_path_is_rejected_without_writing(self) -> None:
+        with self.assertRaisesRegex(core.ScriptError, "devSourcePath must be a non-empty string path"):
+            core.set_config_value("devSourcePath", "")
         self.assertFalse(core.config_path().exists())
 
 

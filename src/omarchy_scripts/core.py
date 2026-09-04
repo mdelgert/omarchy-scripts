@@ -321,6 +321,11 @@ def _validated_setting_value(path: tuple[str, ...], value: Any, *, cwd: Path) ->
             raise ScriptError("scriptDirs must be a JSON array of strings")
         return [_normalize_path(item, relative_to=cwd) for item in value if item.strip()]
 
+    if path == ("devSourcePath",):
+        if not isinstance(value, str) or not value.strip():
+            raise ScriptError("devSourcePath must be a non-empty string path")
+        return _normalize_path(value, relative_to=cwd)
+
     if path and path[0] == "keys":
         if len(path) == 1:
             if not isinstance(value, dict):

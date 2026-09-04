@@ -1,6 +1,6 @@
 # Task: Script that reinstalls the plugin from a source checkout
 
-Status: Ready
+Status: Done
 Type: feature
 
 ## Problem
@@ -61,16 +61,16 @@ and `README.md`'s "Quick start (development)" section).
 
 ## What done looks like
 
-- [ ] The new script exists, is discoverable via `list`/`validate`, and
+- [x] The new script exists, is discoverable via `list`/`validate`, and
       running it against this real source checkout (`/home/mdelgert/Source/omarchy-scripts`)
       reinstalls the plugin and the previously-missing script becomes
       visible without any manual terminal command.
-- [ ] A bad/nonexistent path produces a clear, specific error, not a
+- [x] A bad/nonexistent path produces a clear, specific error, not a
       raw shell failure.
-- [ ] Tests are added or updated where behavior changed.
-- [ ] `make test`, `make lint-qml`, and `make validate` meet the
+- [x] Tests are added or updated where behavior changed.
+- [x] `make test`, `make lint-qml`, and `make validate` meet the
       project's definition of done.
-- [ ] `README.md` documents the new script and the self-copy caveat.
+- [x] `README.md` documents the new script and the self-copy caveat.
 
 ## Out of scope
 
@@ -97,4 +97,49 @@ and `README.md`'s "Quick start (development)" section).
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.
+- Claimed on branch `task/reinstall-from-source`.
+
+- Added bundled script `reinstall-from-source` in `scripts/examples/`. It
+  accepts a `path` parameter, verifies the target contains
+  `omarchy-plugin/install.sh`, then `exec`s that installer so its stdout,
+  stderr, and exit code pass through unchanged.
+
+- Decision: add an optional configured default source path. The script now
+  falls back to `devSourcePath` in `config.json` when `path` is omitted, and
+  the canonical settings mechanism normalizes that key through
+  `_load_settings()` / `_write_settings()` via `set_config_value()`. I did
+  **not** extend `configure-omarchy-scripts.sh`; the generic
+  `omarchy-scripts config set devSourcePath ...` path was enough and kept
+  this task scoped to the requested reinstall workflow.
+
+- Updated `docs/SCRIPT_SPEC.md`, `docs/ARCHITECTURE.md`, and `README.md` to
+  document `devSourcePath`, the new script, and the self-copy caveat: the
+  useful case is a stale installed plugin copy pointing at a separate newer
+  checkout, not targeting itself.
+
+- Tests added in `tests/test_core.py` cover metadata/list/validate
+  visibility, missing-path and missing-`install.sh` errors, exit-code
+  propagation, and the configured-default fallback. Also added config tests
+  for `devSourcePath` normalization/rejection.
+
+- Verification:
+  - `make test`
+  - `make lint-qml`
+  - `make validate`
+  - `./bin/omarchy-scripts validate`
+  - Live manual run from the installed plugin copy's
+    `~/.config/omarchy/plugins/io.github.mdelgert.omarchy-scripts/bin/omarchy-scripts`
+    against the branch checkout at
+    `/home/mdelgert/Source/omarchy-scripts-reinstall-from-source`, confirming
+    the previously-missing `scripts/examples/reinstall-from-source.sh` was
+    present afterward in the installed plugin copy.
+  - Live bad-path run from the installed copy, confirming the clear error
+    `source checkout directory does not exist: ...`.
+  - Live configured-default run from the installed copy after setting and then
+    unsetting `devSourcePath`, confirming the parameter can be omitted on
+    repeat runs.
+
+- Limitation: because the task workflow requires a sibling git worktree for
+  `task/reinstall-from-source`, the live source path used during verification
+  was `/home/mdelgert/Source/omarchy-scripts-reinstall-from-source` rather
+  than the original `/home/mdelgert/Source/omarchy-scripts` worktree.

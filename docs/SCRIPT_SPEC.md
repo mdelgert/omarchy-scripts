@@ -104,13 +104,17 @@ Today the documented settings schema is:
 - `scriptDirs`: JSON array of strings. The generic setter normalizes each path
   the same way `config add-dir`/`remove-dir` do, and those older commands are
   now just convenience wrappers for the same underlying read/write mechanism.
+- `devSourcePath`: string path to a source checkout used by development helper
+  scripts such as `reinstall-from-source`. The generic setter normalizes it to
+  an absolute path relative to the caller's current working directory.
 - `keys`: JSON object whose values are string key specs. A dotted path such as
   `keys.moveDown` targets one action override. Key specs use the same
   `"Modifier+Modifier+Key"` syntax and validation described by
   `docs/ARCHITECTURE.md`; invalid values are rejected and not written.
 
 Unknown top-level config keys may still exist for forward compatibility, but
-only `scriptDirs` and `keys` are part of the documented v1 schema today.
+only `scriptDirs`, `devSourcePath`, and `keys` are part of the documented v1
+schema today.
 
 ## Worked examples
 
