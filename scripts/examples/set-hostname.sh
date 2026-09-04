@@ -8,6 +8,7 @@ set -Eeuo pipefail
 # @script.icon \uf2db
 # @script.tags system,network,hostname
 # @param hostname string required=true label="New hostname"
+# @script.tags hidden
 
 source "${OMARCHY_SCRIPTS_LIB:?}/scripts.sh"
 script_parse_args "$@"
