@@ -753,11 +753,16 @@ class TestCliConfig(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(stderr, "")
         self.assertTrue(result["changed"])
+        self.assertEqual(result["configVersion"], core.CONFIG_VERSION)
         self.assertEqual(result["keys"], core.KEY_ACTION_DEFAULTS)
         self.assertEqual(result["scriptDirs"], [])
         self.assertEqual(
             json.loads(core.config_path().read_text(encoding="utf-8")),
-            {"keys": core.KEY_ACTION_DEFAULTS, "scriptDirs": []},
+            {
+                "configVersion": core.CONFIG_VERSION,
+                "keys": core.KEY_ACTION_DEFAULTS,
+                "scriptDirs": [],
+            },
         )
 
     def test_config_init_is_idempotent_once_nothing_is_missing(self) -> None:
@@ -792,6 +797,16 @@ class TestCliConfig(unittest.TestCase):
         self.assertEqual(stored["keys"]["edit"], "Ctrl+E")
         self.assertEqual(stored["keys"]["moveDown"], "j")
         self.assertEqual(stored["scriptDirs"], [str(existing_dir)])
+
+    def test_config_init_never_overwrites_existing_configVersion(self) -> None:
+        core._write_settings({"configVersion": 999, "keys": {}, "scriptDirs": []})
+
+        code, result, stderr = self._run_cli(["config", "init"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(result["configVersion"], 999)
+        stored = json.loads(core.config_path().read_text(encoding="utf-8"))
+        self.assertEqual(stored["configVersion"], 999)
 
     def test_materialize_default_config_reports_configPath(self) -> None:
         code, result, stderr = self._run_cli(["config", "init"])

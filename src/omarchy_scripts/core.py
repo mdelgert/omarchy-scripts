@@ -39,6 +39,12 @@ ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 DEFAULT_RUN_TIMEOUT = 120
 CONFIG_FILENAME = "config.json"
 
+# Bumped when config.json's own persisted shape changes, distinct from
+# SCHEMA_VERSION above (which stamps the CLI's JSON *output* envelope, not
+# this file's content). Nothing reads this yet — it's a stamp for a future
+# migration to key off of.
+CONFIG_VERSION = 1
+
 KEY_ACTION_DEFAULTS = {
     "moveUp": "Up",
     "moveDown": "Down",
@@ -308,6 +314,10 @@ def materialize_default_config() -> tuple[dict[str, Any], bool]:
     """
     settings = _load_settings()
     changed = not config_path().exists()
+
+    if "configVersion" not in settings:
+        settings["configVersion"] = CONFIG_VERSION
+        changed = True
 
     keys = settings.get("keys")
     if not isinstance(keys, dict):
