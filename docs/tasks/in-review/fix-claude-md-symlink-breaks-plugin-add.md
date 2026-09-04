@@ -1,6 +1,6 @@
 # Task: stop shipping a symlink that breaks `omarchy plugin add`
 
-Status: In progress
+Status: Done
 Type: bug
 
 ## Problem
@@ -116,4 +116,54 @@ symlink, not just be excluded by one of the two install paths.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.
+**Chosen fix:** replaced `CLAUDE.md` with a plain-file copy of `AGENTS.md`
+(option 1 from Scope) rather than `.gitignore`-ing it. Reasoning: keeping
+it committed means Claude Code's auto-discovery works out of the box for
+every contributor with zero manual setup step, which is worth the small
+duplication cost; a new test
+(`TestClaudeMdIsAPlainFileMirroringAgents` in `tests/test_core.py`) makes
+that duplication safe by failing loudly — both if `CLAUDE.md` ever
+becomes a symlink again, and if its content drifts from `AGENTS.md`.
+
+**Changed:**
+- `CLAUDE.md`: `120000` (symlink) → `100644` (plain file), content copied
+  verbatim from `AGENTS.md`.
+- `tests/test_core.py`: added `TestClaudeMdIsAPlainFileMirroringAgents`
+  with two tests — not-a-symlink, and byte-identical to `AGENTS.md`.
+- `omarchy-plugin/install.sh`: removed the now-dead
+  `--exclude 'CLAUDE.md'` — a plain file doesn't trip
+  `omarchy-plugin-validate`, so there's nothing left to exclude it for.
+- `README.md`: moved `### Remove` to sit directly under the `## Install`
+  command block (right after the one-line clone/validate/enable
+  explanation), ahead of the keybind/update/troubleshooting content that
+  previously separated the two.
+
+**Verified (real reproduction, not just unit tests):**
+1. `git clone` of this branch, then `omarchy-plugin-validate <clone>` →
+   exit `0`, no symlink error (previously failed with exactly the
+   reported `symlinks are not allowed inside a plugin folder` error
+   before this fix was committed).
+2. Full `omarchy plugin add file:///path/to/clone --enable --yes` against
+   that clone → succeeded end-to-end ("Cloning...", "Added
+   io.github.mdelgert.omarchy-scripts...", "Enabled
+   io.github.mdelgert.omarchy-scripts") — the exact command/flow from the
+   bug report, run against a real clone containing the fix, with the
+   existing dev-installed plugin directory temporarily moved aside and
+   restored afterward so this machine's working dev install wasn't
+   disturbed.
+3. Confirmed no symlinks anywhere under the installed plugin directory
+   (`find -type l` empty) and no other tracked symlink anywhere in the
+   repo (`git ls-files -s | awk '$1=="120000"'` empty).
+4. `./omarchy-plugin/install.sh` (the dev path) still installs cleanly —
+   unaffected by removing the now-unnecessary exclude line, since
+   `CLAUDE.md` is no longer a symlink either way.
+5. `make test` (51/51), `make lint-qml` (only the four documented
+   pre-existing warning categories), `make validate` (0 problems).
+
+**Limitations / follow-ups:** the drift guard is a test, not a build-time
+hook — someone editing `AGENTS.md` without also updating `CLAUDE.md`
+won't find out until `make test` runs (which is already this project's
+non-negotiable definition of done, so it will be caught before merge, but
+not the instant the edit is made). No further action planned; a
+pre-commit hook would be over-engineering for a two-file, rarely-edited
+pair.

@@ -800,5 +800,38 @@ class TestCliConfig(unittest.TestCase):
         self.assertEqual(result["configPath"], str(self.workspace / "config.json"))
 
 
+class TestClaudeMdIsAPlainFileMirroringAgents(unittest.TestCase):
+    """`omarchy plugin add` clones this repo as-is and its own
+    `omarchy-plugin-validate` unconditionally rejects any symlink inside the
+    plugin folder. `CLAUDE.md` (for Claude Code's CLAUDE.md auto-discovery)
+    must therefore be a plain file, never a tracked git symlink, and it must
+    not silently drift from `AGENTS.md` (the actual source of truth other
+    tools/humans read) now that a symlink isn't enforcing that for us.
+    """
+
+    def setUp(self) -> None:
+        self.repo_root = Path(__file__).resolve().parents[1]
+
+    def test_claude_md_is_not_a_symlink(self) -> None:
+        claude_md = self.repo_root / "CLAUDE.md"
+        self.assertTrue(claude_md.is_file())
+        self.assertFalse(
+            claude_md.is_symlink(),
+            "CLAUDE.md must be a plain file: `omarchy plugin add` clones this "
+            "repo as-is and rejects any symlink inside the plugin folder",
+        )
+
+    def test_claude_md_matches_agents_md(self) -> None:
+        agents_md = (self.repo_root / "AGENTS.md").read_text(encoding="utf-8")
+        claude_md = (self.repo_root / "CLAUDE.md").read_text(encoding="utf-8")
+        self.assertEqual(
+            claude_md,
+            agents_md,
+            "CLAUDE.md has drifted from AGENTS.md; keep them identical (copy "
+            "AGENTS.md over CLAUDE.md again) since AGENTS.md is the source of "
+            "truth and CLAUDE.md can no longer be a symlink to it",
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
