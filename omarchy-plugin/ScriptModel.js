@@ -94,6 +94,18 @@ function matchesFilter(script, text) {
   return haystack.indexOf(text) >= 0
 }
 
+// A script tagged "hidden" (alone or alongside other tags — see
+// SCRIPT_SPEC.md) is omitted from the browse list and its type-to-filter
+// search. This is a QML-only presentation decision: the engine and CLI
+// still discover/list/run a hidden script exactly like any other one.
+function isHidden(script) {
+  var tags = (script && script.tags) || []
+  for (var i = 0; i < tags.length; i++) {
+    if (String(tags[i]) === "hidden") return true
+  }
+  return false
+}
+
 // Whether a script can be launched straight from the browse list with no
 // detail-view detour: true for zero params, or when every declared param
 // stops short of `required=true`. A `required=true` param routes to the
@@ -113,7 +125,7 @@ function canRunWithoutInput(script) {
 // carries the same keys so the delegate never binds undefined.
 function rowsFor(scripts, filterText) {
   var text = String(filterText || "").toLowerCase()
-  var filtered = (scripts || []).filter(function(s) { return matchesFilter(s, text) })
+  var filtered = (scripts || []).filter(function(s) { return !isHidden(s) && matchesFilter(s, text) })
   var rows = []
   var currentCategory = null
   for (var i = 0; i < filtered.length; i++) {
