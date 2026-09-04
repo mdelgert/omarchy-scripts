@@ -1,6 +1,6 @@
 # Task: Script that updates every configurable `omarchy-scripts` setting
 
-Status: In progress
+Status: Done
 Type: feature
 Claimed by: Copilot (@mdelgert_church) on 2026-09-03T19:47:29.490-07:00
 
@@ -75,23 +75,23 @@ it stays generic.
 
 ## What done looks like
 
-- [ ] `scripts/examples/configure-omarchy-scripts.sh` exists, is
+- [x] `scripts/examples/configure-omarchy-scripts.sh` exists, is
       executable, and parses via `./bin/omarchy-scripts list` /
       `validate` with no errors.
-- [ ] Running it with one or more parameters filled in updates exactly
+- [x] Running it with one or more parameters filled in updates exactly
       those settings in `~/.config/omarchy-scripts/config.json` and
       leaves everything else untouched.
-- [ ] Running it with a parameter set to `default` resets that setting
+- [x] Running it with a parameter set to `default` resets that setting
       to its built-in default (removes the override).
-- [ ] Running it with no parameters filled in prints the current full
+- [x] Running it with no parameters filled in prints the current full
       configuration without changing anything.
-- [ ] Invalid values (e.g. a bad key spec) surface the same error the
+- [x] Invalid values (e.g. a bad key spec) surface the same error the
       underlying `config set` CLI already produces — no duplicated
       validation logic.
-- [ ] Tests are added or updated where behavior changed.
-- [ ] `make test`, `make lint-qml`, and `make validate` meet the
+- [x] Tests are added or updated where behavior changed.
+- [x] `make test`, `make lint-qml`, and `make validate` meet the
       project's definition of done.
-- [ ] `README.md`'s Example scripts section documents the new script.
+- [x] `README.md`'s Example scripts section documents the new script.
 
 ## Out of scope
 
@@ -120,4 +120,33 @@ it stays generic.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.
+- Added `scripts/examples/configure-omarchy-scripts.sh`, an example/run
+  script that declares one optional string parameter for every current key
+  action plus `scriptDirs`. Non-empty values flow straight through the
+  existing `omarchy-scripts config set/unset` CLI, so settings I/O and
+  validation stay in the shared engine rather than being reimplemented in
+  Bash.
+- The script treats blank or omitted parameters as read-only/no-op for that
+  field, and treats the literal value `default` as `config unset`. After
+  every run — including an all-blank run — it prints the current resolved
+  key bindings plus configured `scriptDirs`, so the menu form can double as
+  a safe "show me the current settings" action.
+- No CLI extension was needed for this task. The script prints the resolved
+  keys by reusing `omarchy-scripts list` and prints `scriptDirs` via
+  `omarchy-scripts config get scriptDirs`.
+- Extended `tests/test_core.py` to cover the new script's metadata/CLI
+  visibility, multi-setting updates that preserve unrelated existing
+  settings, resetting a key binding back to default, blank read-only runs,
+  and bubbling up the underlying invalid-key-spec error.
+- Updated `README.md`'s example-scripts list with a one-line description of
+  the new script.
+- Verified with `make test`, `make lint-qml`, `make validate`,
+  `./bin/omarchy-scripts validate`, and manual runs under an isolated
+  project-local `XDG_CONFIG_HOME`. Manual checks confirmed that setting two
+  key bindings plus `scriptDirs` updated only those entries, `default`
+  removed the override from `keys`, and an all-blank run left the config
+  file byte-for-byte unchanged while printing the resolved configuration.
+- Limitation kept intentionally in scope with the task: if a future release
+  adds a brand-new setting category beyond today's key actions and
+  `scriptDirs`, this script will need a small follow-up edit to expose that
+  new category as additional declared parameters.

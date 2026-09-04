@@ -93,6 +93,158 @@ class TestParsing(unittest.TestCase):
             core.parse_key_spec("Hyper+J")
 
 
+class TestBundledConfigureScript(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp())
+        self.repo_root = Path(__file__).resolve().parents[1]
+        self.workspace = self.tmp / "workspace"
+        self.state = self.tmp / "state"
+        self._old_home = os.environ.get("OMARCHY_SCRIPTS_HOME")
+        self._old_state = os.environ.get("OMARCHY_SCRIPTS_STATE")
+        self._old_root = os.environ.get("OMARCHY_SCRIPTS_ROOT")
+        os.environ["OMARCHY_SCRIPTS_HOME"] = str(self.workspace)
+        os.environ["OMARCHY_SCRIPTS_STATE"] = str(self.state)
+        os.environ["OMARCHY_SCRIPTS_ROOT"] = str(self.repo_root)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+        for key, value in (
+            ("OMARCHY_SCRIPTS_HOME", self._old_home),
+            ("OMARCHY_SCRIPTS_STATE", self._old_state),
+            ("OMARCHY_SCRIPTS_ROOT", self._old_root),
+        ):
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
+
+    def _run_cli(self, argv: list[str]) -> tuple[int, dict[str, object], str]:
+        stdout = io.StringIO()
+        stderr = io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = cli.main(argv)
+        return code, json.loads(stdout.getvalue()), stderr.getvalue()
+
+    def _run_script(self, values: dict[str, str]) -> dict[str, object]:
+        result = core.run(self.repo_root, "configure-omarchy-scripts", values)
+        self.assertTrue(result["success"], msg=result["stderr"])
+        return result
+
+    def test_configure_script_metadata_and_cli_visibility(self) -> None:
+        path = self.repo_root / "scripts" / "examples" / "configure-omarchy-scripts.sh"
+        script = core.parse_metadata(path.read_text(encoding="utf-8"), path, "bundled")
+        self.assertEqual(script.id, "configure-omarchy-scripts")
+        self.assertEqual(
+            [param.name for param in script.params],
+            [
+                "moveUp",
+                "moveDown",
+                "open",
+                "quickRun",
+                "back",
+                "reload",
+                "run",
+                "edit",
+                "delete",
+                "scriptDirs",
+            ],
+        )
+
+        code, listed, stderr = self._run_cli(["list"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertIn(
+            "configure-omarchy-scripts",
+            [script["id"] for script in listed["scripts"]],
+        )
+
+        code, validated, stderr = self._run_cli(["validate"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(validated["problems"], [])
+
+    def test_configure_script_updates_multiple_values_without_touching_others(self) -> None:
+        existing_dir = self.tmp / "already-there"
+        core._write_settings(
+            {
+                "keys": {"edit": "Ctrl+E"},
+                "scriptDirs": [str(existing_dir)],
+            }
+        )
+        first = self.tmp / "team-one"
+        second = self.tmp / "team-two"
+
+        result = self._run_script(
+            {
+                "moveDown": "j",
+                "open": "Space",
+                "scriptDirs": f"{first},{second}",
+            }
+        )
+
+        stored = json.loads(core.config_path().read_text(encoding="utf-8"))
+        self.assertEqual(
+            stored,
+            {
+                "keys": {
+                    "edit": "Ctrl+E",
+                    "moveDown": "j",
+                    "open": "Space",
+                },
+                "scriptDirs": [
+                    str(first.resolve()),
+                    str(second.resolve()),
+                ],
+            },
+        )
+
+        printed = json.loads(result["stdout"])
+        self.assertEqual(printed["scriptDirs"], stored["scriptDirs"])
+        self.assertEqual(printed["keys"]["moveDown"], "J")
+        self.assertEqual(printed["keys"]["open"], "Space")
+        self.assertEqual(printed["keys"]["edit"], "Ctrl+E")
+        self.assertEqual(printed["keys"]["back"], core.KEY_ACTION_DEFAULTS["back"])
+
+    def test_configure_script_default_unsets_override(self) -> None:
+        core._write_settings(
+            {
+                "keys": {"moveDown": "j", "edit": "Ctrl+E"},
+                "scriptDirs": [str((self.tmp / "scripts").resolve())],
+            }
+        )
+
+        result = self._run_script({"moveDown": "default"})
+
+        stored = json.loads(core.config_path().read_text(encoding="utf-8"))
+        self.assertEqual(
+            stored,
+            {
+                "keys": {"edit": "Ctrl+E"},
+                "scriptDirs": [str((self.tmp / "scripts").resolve())],
+            },
+        )
+        keys, problems = core.resolve_key_bindings()
+        self.assertEqual(problems, [])
+        self.assertEqual(keys["moveDown"], core.KEY_ACTION_DEFAULTS["moveDown"])
+
+        printed = json.loads(result["stdout"])
+        self.assertEqual(printed["keys"]["moveDown"], core.KEY_ACTION_DEFAULTS["moveDown"])
+
+    def test_configure_script_with_blank_values_only_prints_current_config(self) -> None:
+        result = self._run_script({})
+
+        self.assertFalse(core.config_path().exists())
+        printed = json.loads(result["stdout"])
+        self.assertEqual(printed["scriptDirs"], [])
+        self.assertEqual(printed["keys"], core.KEY_ACTION_DEFAULTS)
+
+    def test_configure_script_surfaces_underlying_config_error(self) -> None:
+        result = core.run(self.repo_root, "configure-omarchy-scripts", {"moveDown": "Shift+"})
+        self.assertFalse(result["success"])
+        self.assertIn("invalid key spec 'Shift+'", result["stderr"])
+        self.assertFalse(core.config_path().exists())
+
+
 class TestDiscoveryAndRun(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp())
