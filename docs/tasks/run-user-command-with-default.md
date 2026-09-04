@@ -1,6 +1,6 @@
 # Task: script that runs a user-input command (default `omarchy commands --json`)
 
-Status: Ready
+Status: Done
 Type: feature
 
 ## Problem
@@ -38,18 +38,19 @@ commands exist, in JSON form, without leaving the menu.
 
 ## What done looks like
 
-- [ ] Running the script with the default value executes
+- [x] Running the script with the default value executes
       `omarchy commands --json` and pretty-prints the JSON result.
-- [ ] Running it with a different typed command (including one with a
+- [x] Running it with a different typed command (including one with a
       pipe, e.g. `ls | wc -l`) executes that instead and shows its output.
-- [ ] A failing command (non-zero exit, e.g. `false` or a typo'd binary)
+- [x] A failing command (non-zero exit, e.g. `false` or a typo'd binary)
       is clearly reported as failed, not silently ignored.
-- [ ] `make test`, `make lint-qml`, and `make validate` meet the project's
+- [x] `make test`, `make lint-qml`, and `make validate` meet the project's
       definition of done.
-- [ ] `docs/SCRIPT_SPEC.md`/`docs/ARCHITECTURE.md` updated only if this
+- [x] `docs/SCRIPT_SPEC.md`/`docs/ARCHITECTURE.md` updated only if this
       surfaces a new pattern worth documenting (e.g. "a script whose
       param is itself a shell command line is expected to use a shell to
-      run it" — otherwise no doc changes are needed).
+      run it" — otherwise no doc changes are needed). No doc changes were
+      needed: this is a plain `string` param, no new engine-level pattern.
 
 ## Out of scope
 
@@ -75,6 +76,42 @@ commands exist, in JSON form, without leaving the menu.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and
-useful follow-ups. Set Status to Done after merge, then move the
-completed file to `docs/tasks/done/`.
+**Changed:** added `scripts/examples/run-command.sh` — a single-param
+(`command`, default `omarchy commands --json`) run-only script. Runs the
+typed command via `bash -c "$command"` (the shell-command-line trust model
+described in Scope), captures stdout+stderr together to a temp file,
+pretty-prints with `jq` if the output parses as JSON (mirroring
+`check-website-status.sh`), otherwise prints it raw, then reports the exit
+status clearly and re-exits non-zero on failure so a failing command is
+never silently swallowed.
+
+**Verified:**
+- Via the CLI directly (`./bin/omarchy-scripts run run-command`):
+  - Default value runs `omarchy commands --json` and pretty-prints the
+    JSON result.
+  - `--param command="ls | wc -l"` (a pipe) runs correctly through the
+    shell and prints its (single-number, still valid-JSON) output.
+  - `--param command=false` and a typo'd binary both report a non-zero
+    exit status (1 and 127 respectively) and the script's own exit code
+    matches, without swallowing the failure.
+- Live in a real Hyprland/quickshell session: installed the branch,
+  restarted the shell, filtered the menu to "run" and confirmed
+  "Run a command" appears under a new "Utility" category with the
+  `command` field prefilled with the default value, matching this repo's
+  existing default-prefill convention for single-run scripts. Restored the
+  live session to `main`'s build afterward.
+- `make test` (47/47 passing, no new tests needed — pure shell script, no
+  Python-level surface, same rationale as `check-website-status.sh`),
+  `make lint-qml` (same 4 documented warning categories, no new one),
+  `make validate` (0 problems, 8 scripts now).
+
+**Limitations:** as in a prior task's Report, this sandbox's `hyprctl
+dispatch` shim and lack of `ydotool`/pointer control meant I could type into
+the on-screen field (`wtype`) but could not reliably click "Run" or
+tab-navigate to it from the keyboard-only script metadata form; the menu
+closed itself during one such attempt rather than executing the script.
+This is a sandbox interaction limitation, not a script bug — the exact same
+script logic was fully exercised (default, pipe, and two failure cases) via
+the CLI, which runs the identical code path the QML action invokes.
+
+**Follow-ups:** none identified.
