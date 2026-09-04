@@ -1,6 +1,6 @@
 # Task: Duplicate an existing script under a new, unique id
 
-Status: Ready
+Status: In progress
 Type: feature
 
 ## Problem
