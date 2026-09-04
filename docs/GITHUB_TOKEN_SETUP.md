@@ -63,8 +63,14 @@ Verify it worked and confirm it's actually scoped the way you expect:
 ```bash
 gh auth status
 gh repo view mdelgert/omarchy-scripts   # should work
-gh repo view mdelgert/some-other-repo   # should fail — token can't see it
 ```
+
+`gh repo view` on some *other* repo is not a valid scope test if that repo
+is public — anyone can read public repo metadata regardless of token
+permissions. To actually confirm the token can't touch another repo, try a
+write operation against it instead, e.g. `gh api repos/<other-owner>/<other-repo>/pulls
+-f title=x -f head=y -f base=main`, which should fail with `403 Resource
+not accessible by personal access token`.
 
 ## Revoking / rotating
 
