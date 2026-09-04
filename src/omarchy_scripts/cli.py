@@ -67,6 +67,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     cp = sub.add_parser("config", help="manage settings")
     csub = cp.add_subparsers(dest="config_command", required=True)
+    csub.add_parser("init", help="materialize a fully-populated config.json (existing values win)")
     csub.add_parser("list-dirs", help="list configured external script directories")
     ap = csub.add_parser("add-dir", help="add a configured external script directory")
     ap.add_argument("path")
@@ -151,6 +152,16 @@ def main(argv: list[str] | None = None) -> int:
             return 1 if problems else 0
 
         if args.command == "config":
+            if args.config_command == "init":
+                settings, changed = core.materialize_default_config()
+                _emit({
+                    "configPath": str(core.config_path()),
+                    "changed": changed,
+                    "keys": settings.get("keys", {}),
+                    "scriptDirs": core.list_script_dirs(),
+                })
+                return 0
+
             if args.config_command == "list-dirs":
                 _emit({
                     "configPath": str(core.config_path()),

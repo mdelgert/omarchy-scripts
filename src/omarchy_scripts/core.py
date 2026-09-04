@@ -291,6 +291,42 @@ def _write_settings(settings: dict[str, Any]) -> None:
     path.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")
 
 
+def materialize_default_config() -> tuple[dict[str, Any], bool]:
+    """Ensure `config.json` exists and lists every key action's default plus
+    an empty `scriptDirs`, without ever overwriting a value already present
+    — an existing customization always wins, this only fills in what is
+    genuinely missing.
+
+    Called explicitly (`config init` and `omarchy-plugin/install.sh`), never
+    from `_load_settings()` itself: a plain read (`list`, `config get`, ...)
+    must stay side-effect-free, which is also what the existing
+    `configure-omarchy-scripts.sh` tests rely on (a no-op/blank run leaves
+    no `config.json` behind).
+
+    Returns the resulting settings and whether the file was written.
+    """
+    settings = _load_settings()
+    changed = not config_path().exists()
+
+    keys = settings.get("keys")
+    if not isinstance(keys, dict):
+        keys = {}
+        changed = True
+    for action, default_spec in KEY_ACTION_DEFAULTS.items():
+        if action not in keys:
+            keys[action] = default_spec
+            changed = True
+    settings["keys"] = keys
+
+    if "scriptDirs" not in settings:
+        settings["scriptDirs"] = []
+        changed = True
+
+    if changed:
+        _write_settings(settings)
+    return settings, changed
+
+
 def _split_config_key_path(path: str) -> tuple[str, ...]:
     raw = str(path).strip()
     if not raw:
