@@ -1,7 +1,8 @@
 # Task: Script that updates every configurable `omarchy-scripts` setting
 
-Status: Ready
+Status: In progress
 Type: feature
+Claimed by: Copilot (@mdelgert_church) on 2026-09-03T19:47:29.490-07:00
 
 ## Problem
 
