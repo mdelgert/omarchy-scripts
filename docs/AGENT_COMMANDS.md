@@ -53,7 +53,8 @@ using `claude`'s `prompt` argument to submit the slash command for you the
 moment the interactive session opens:
 
 ```bash
-git checkout -b code-review/high-fix && claude "/code-review high --fix"
+git checkout -b code-review/high-fix 
+claude /code-review high --fix
 ```
 
 (Without a trailing argument, `claude "/code-review ..."` still opens an
