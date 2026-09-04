@@ -1,6 +1,6 @@
 # Task: script that changes the machine's hostname
 
-Status: In progress
+Status: Done
 Type: feature
 
 ## Problem
@@ -38,18 +38,19 @@ the current hostname; there's no counterpart that changes it.
 
 ## What done looks like
 
-- [ ] Running the script with a valid new hostname changes it and the
+- [x] Running the script with a valid new hostname changes it and the
       script's own output confirms the new value by re-reading it (not
       just echoing the input back).
-- [ ] An obviously invalid value (empty, contains a space or `/`) is
+- [x] An obviously invalid value (empty, contains a space or `/`) is
       rejected with a clear error before attempting `hostnamectl`.
-- [ ] Lack of sufficient privileges produces a clear, actionable message,
+- [x] Lack of sufficient privileges produces a clear, actionable message,
       not a raw stack trace or silent no-op.
-- [ ] `make test`, `make lint-qml`, and `make validate` meet the project's
+- [x] `make test`, `make lint-qml`, and `make validate` meet the project's
       definition of done.
-- [ ] Documentation updated only if this surfaces a new pattern worth
+- [x] Documentation updated only if this surfaces a new pattern worth
       recording (e.g. how privilege-requiring example scripts should
-      report failure) — otherwise no doc changes are needed.
+      report failure) — otherwise no doc changes are needed. (No pattern
+      change needed; documented decisions in the Report above instead.)
 
 ## Out of scope
 
@@ -75,6 +76,47 @@ the current hostname; there's no counterpart that changes it.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and
-useful follow-ups. Set Status to Done after merge, then move the
-completed file to `docs/tasks/done/`.
+Added `scripts/examples/set-hostname.sh`:
+
+- `@script.id set-hostname`, category `System` (new category — no existing
+  example used it), single required `hostname` string param.
+- Prints the current hostname up front (via `hostname`) as the implicit
+  undo value before doing anything.
+- Validates the input is non-empty and has no whitespace/slash before
+  calling `hostnamectl` — a simple regex check, not full RFC 1123.
+- Applies the change via `hostnamectl set-hostname <value>`.
+- Re-reads `hostname` after the call to confirm the actual resulting
+  value rather than echoing the input back.
+- On `hostnamectl` failure (captured via `set +e`/`$?`, output captured),
+  prints the underlying error plus an actionable suggestion to re-run
+  with `sudo` or that a polkit prompt may be required, since no other
+  example script in this repo has an established privilege-escalation
+  pattern to follow (checked `run-command.sh`, `reinstall-from-source.sh`,
+  `configure-omarchy-scripts.sh` — none invoke `sudo` or handle
+  permission-denied specially). No engine-level "elevate privileges"
+  mechanism exists; the script just reports the limitation clearly
+  instead of silently failing or attempting sudo itself.
+
+Manually tested on this machine (systemd, `hostnamectl` present):
+- Invalid inputs (empty, `"bad host"`, `"bad/host"`) are rejected before
+  calling `hostnamectl`, each with a clear message and exit 1.
+- Running as a normal user without a polkit agent fails with a clear,
+  actionable message (confirmed real `hostnamectl` "interactive
+  authentication required" error surfaced, plus the sudo/polkit hint) —
+  no raw stack trace or silent no-op.
+- Running via `sudo` actually changed the system hostname
+  (`hostnamectl status` showed the new static hostname), and the
+  script's own re-read confirmed it. Reverted the test machine back to
+  its original hostname (`vm-01`) afterward.
+
+`make test`, `make lint-qml` (no new warning categories beyond the
+documented pre-existing ones), and `make validate` all pass.
+
+Known follow-ups (left out of scope per the task):
+- No automated update of `/etc/hosts` (e.g. a `127.0.1.1 <hostname>`
+  line) — flagged here as a possible future enhancement, not implemented.
+- No general privilege-escalation mechanism was added to the engine;
+  scripts requiring elevated privileges still rely on the user running
+  omarchy-scripts itself with sufficient rights, or a polkit agent being
+  available. Worth revisiting if more privilege-requiring example
+  scripts are added.
