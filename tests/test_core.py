@@ -73,6 +73,22 @@ class TestParsing(unittest.TestCase):
         script = core.parse_metadata(text, Path("/tmp/literal.sh"), "bundled")
         self.assertEqual(script.params[0].attrs.get("default"), "$HOME")
 
+    def test_parse_key_spec_accepts_modifiers_and_aliases(self) -> None:
+        parsed = core.parse_key_spec("ctrl+shift+enter")
+        self.assertEqual(parsed.modifiers, ("Ctrl", "Shift"))
+        self.assertEqual(parsed.key, "Return")
+        self.assertEqual(parsed.to_spec(), "Ctrl+Shift+Return")
+
+    def test_parse_key_spec_accepts_single_letter(self) -> None:
+        parsed = core.parse_key_spec("j")
+        self.assertEqual(parsed.modifiers, ())
+        self.assertEqual(parsed.key, "J")
+        self.assertEqual(parsed.to_spec(), "J")
+
+    def test_parse_key_spec_rejects_unknown_modifier(self) -> None:
+        with self.assertRaises(core.ScriptError):
+            core.parse_key_spec("Hyper+J")
+
 
 class TestDiscoveryAndRun(unittest.TestCase):
     def setUp(self) -> None:
@@ -145,6 +161,29 @@ class TestDiscoveryAndRun(unittest.TestCase):
         path = self._write(self.engine_root / "scripts", "a.sh", SIMPLE_SCRIPT)
         core.delete(self.engine_root, "sample-script")
         self.assertFalse(path.exists())
+
+    def test_resolve_key_bindings_uses_configured_value(self) -> None:
+        self.workspace.mkdir(parents=True, exist_ok=True)
+        core.settings_path().write_text(
+            '{\n  "keys": {\n    "moveDown": "j",\n    "quickRun": "Ctrl+R"\n  }\n}\n',
+            encoding="utf-8",
+        )
+        keys, problems = core.resolve_key_bindings()
+        self.assertEqual(problems, [])
+        self.assertEqual(keys["moveDown"], "J")
+        self.assertEqual(keys["quickRun"], "Ctrl+R")
+        self.assertEqual(keys["open"], "Return")
+
+    def test_invalid_key_spec_falls_back_to_default(self) -> None:
+        self.workspace.mkdir(parents=True, exist_ok=True)
+        core.settings_path().write_text(
+            '{\n  "keys": {\n    "moveDown": "Shift+"\n  }\n}\n',
+            encoding="utf-8",
+        )
+        keys, problems = core.resolve_key_bindings()
+        self.assertEqual(keys["moveDown"], core.KEY_ACTION_DEFAULTS["moveDown"])
+        self.assertEqual(len(problems), 1)
+        self.assertIn("using default Down", problems[0])
 
 
 if __name__ == "__main__":

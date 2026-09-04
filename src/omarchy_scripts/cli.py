@@ -78,7 +78,13 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "list":
             scripts, problems = core.discover(root)
-            _emit({"scripts": [s.to_dict() for s in scripts], "problems": problems})
+            keys, settings_problems = core.resolve_key_bindings()
+            _emit({
+                "scripts": [s.to_dict() for s in scripts],
+                "problems": problems,
+                "keys": keys,
+                "settingsProblems": settings_problems,
+            })
             return 0
 
         if args.command == "info":

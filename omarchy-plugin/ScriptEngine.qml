@@ -47,6 +47,8 @@ Item {
   property bool loadingList: false
   property var scripts: []
   property var problems: []
+  property var keySpecs: ({})
+  property var settingsProblems: []
   property string engineError: ""
 
   property string selectedId: ""
@@ -136,6 +138,8 @@ Item {
       engine.engineError = ""
       engine.scripts = parsed.data.scripts || []
       engine.problems = parsed.data.problems || []
+      engine.keySpecs = parsed.data.keys || ({})
+      engine.settingsProblems = parsed.data.settingsProblems || []
     }
   }
 

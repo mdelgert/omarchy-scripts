@@ -38,6 +38,81 @@ ID_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 DEFAULT_RUN_TIMEOUT = 120
 
+KEY_ACTION_DEFAULTS = {
+    "moveUp": "Up",
+    "moveDown": "Down",
+    "open": "Return",
+    "quickRun": "Shift+Return",
+    "back": "Escape",
+    "reload": "F5",
+    "run": "R",
+    "edit": "E",
+    "delete": "D",
+}
+KEY_MODIFIER_ALIASES = {
+    "alt": "Alt",
+    "control": "Ctrl",
+    "ctrl": "Ctrl",
+    "meta": "Meta",
+    "shift": "Shift",
+    "super": "Super",
+}
+KEY_NAME_ALIASES = {
+    "backspace": "Backspace",
+    "delete": "Delete",
+    "down": "Down",
+    "end": "End",
+    "enter": "Return",
+    "esc": "Escape",
+    "escape": "Escape",
+    "f1": "F1",
+    "f2": "F2",
+    "f3": "F3",
+    "f4": "F4",
+    "f5": "F5",
+    "f6": "F6",
+    "f7": "F7",
+    "f8": "F8",
+    "f9": "F9",
+    "f10": "F10",
+    "f11": "F11",
+    "f12": "F12",
+    "f13": "F13",
+    "f14": "F14",
+    "f15": "F15",
+    "f16": "F16",
+    "f17": "F17",
+    "f18": "F18",
+    "f19": "F19",
+    "f20": "F20",
+    "f21": "F21",
+    "f22": "F22",
+    "f23": "F23",
+    "f24": "F24",
+    "f25": "F25",
+    "f26": "F26",
+    "f27": "F27",
+    "f28": "F28",
+    "f29": "F29",
+    "f30": "F30",
+    "f31": "F31",
+    "f32": "F32",
+    "f33": "F33",
+    "f34": "F34",
+    "f35": "F35",
+    "home": "Home",
+    "left": "Left",
+    "pagedown": "PageDown",
+    "pageup": "PageUp",
+    "return": "Return",
+    "right": "Right",
+    "space": "Space",
+    "tab": "Tab",
+    "up": "Up",
+}
+KEY_MODIFIER_ORDER = ("Ctrl", "Alt", "Shift", "Super", "Meta")
+SETTINGS_FILE = "config.json"
+
 # `@script.icon` is written as a `\uXXXX` escape rather than the literal glyph,
 # same convention as omarchy-recipes: a private-use-area character does not
 # survive every editor/shell/diff round-trip, and a silently emptied icon
@@ -120,6 +195,17 @@ class Script:
         }
 
 
+@dataclass(frozen=True)
+class ParsedKeySpec:
+    modifiers: tuple[str, ...]
+    key: str
+
+    def to_spec(self) -> str:
+        parts = [m for m in KEY_MODIFIER_ORDER if m in self.modifiers]
+        parts.append(self.key)
+        return "+".join(parts)
+
+
 def workspace_root() -> Path:
     """User-writable root holding scripts the user added or edited.
 
@@ -140,6 +226,85 @@ def state_root() -> Path:
         return Path(override)
     base = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local" / "state"))
     return base / "omarchy-scripts"
+
+
+def settings_path() -> Path:
+    """Shared settings file for user-level omarchy-scripts preferences."""
+    return workspace_root() / SETTINGS_FILE
+
+
+def _load_settings_file() -> tuple[dict[str, Any], list[str]]:
+    path = settings_path()
+    if not path.exists():
+        return {}, []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return {}, [f"{path}: could not parse JSON settings file: {exc}"]
+    if not isinstance(data, dict):
+        return {}, [f"{path}: expected a top-level JSON object"]
+    return data, []
+
+
+def parse_key_spec(spec: str) -> ParsedKeySpec:
+    raw = str(spec).strip()
+    if not raw:
+        raise ScriptError("key spec must not be empty")
+
+    pieces = [piece.strip() for piece in raw.split("+")]
+    if any(not piece for piece in pieces):
+        raise ScriptError(f"invalid key spec {spec!r}: empty token")
+
+    modifiers: list[str] = []
+    seen_modifiers: set[str] = set()
+    for piece in pieces[:-1]:
+        modifier = KEY_MODIFIER_ALIASES.get(piece.lower())
+        if modifier is None:
+            raise ScriptError(f"invalid key spec {spec!r}: unknown modifier {piece!r}")
+        if modifier in seen_modifiers:
+            raise ScriptError(f"invalid key spec {spec!r}: duplicate modifier {piece!r}")
+        seen_modifiers.add(modifier)
+        modifiers.append(modifier)
+
+    key_token = pieces[-1]
+    key_alias = KEY_NAME_ALIASES.get(key_token.lower())
+    if key_alias is not None:
+        key = key_alias
+    elif len(key_token) == 1 and not key_token.isspace():
+        key = key_token.upper() if key_token.isalpha() else key_token
+    else:
+        raise ScriptError(f"invalid key spec {spec!r}: unknown key {key_token!r}")
+
+    return ParsedKeySpec(modifiers=tuple(modifiers), key=key)
+
+
+def resolve_key_bindings() -> tuple[dict[str, str], list[str]]:
+    settings, problems = _load_settings_file()
+    resolved = dict(KEY_ACTION_DEFAULTS)
+    raw_keys = settings.get("keys")
+    if raw_keys is None:
+        return resolved, problems
+    if not isinstance(raw_keys, dict):
+        return resolved, [
+            *problems,
+            f"{settings_path()}: keys must be a JSON object mapping action names to key specs",
+        ]
+
+    extra_problems = list(problems)
+    for action, default_spec in KEY_ACTION_DEFAULTS.items():
+        raw_spec = raw_keys.get(action)
+        if raw_spec is None:
+            continue
+        if not isinstance(raw_spec, str):
+            extra_problems.append(
+                f"{settings_path()}: keys.{action} must be a string; using default {default_spec}"
+            )
+            continue
+        try:
+            resolved[action] = parse_key_spec(raw_spec).to_spec()
+        except ScriptError as exc:
+            extra_problems.append(f"{settings_path()}: {exc}; using default {default_spec}")
+    return resolved, extra_problems
 
 
 def _split_csv(value: str) -> list[str]:

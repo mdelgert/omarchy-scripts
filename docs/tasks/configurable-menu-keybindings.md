@@ -1,6 +1,6 @@
 # Task: Configurable menu keybindings + on-screen key hints
 
-Status: In progress
+Status: Done
 Type: feature
 
 ## Problem
@@ -91,18 +91,18 @@ Hyprland binding in `~/.config/hypr/bindings.lua`. Two things worth fixing:
 
 ## What done looks like
 
-- [ ] Default behavior (no `keys` config present) is pixel-for-pixel /
+- [x] Default behavior (no `keys` config present) is pixel-for-pixel /
       keystroke-for-keystroke identical to today.
-- [ ] At least one remapped action (e.g. `moveDown` → `j`) is verified live
+- [x] At least one remapped action (e.g. `moveDown` → `j`) is verified live
       to actually change behavior after a restart.
-- [ ] The hint line and any button mnemonics reflect the resolved keymap,
+- [x] The hint line and any button mnemonics reflect the resolved keymap,
       not a hardcoded string — verified by remapping something and seeing
       the on-screen text change to match.
-- [ ] Unit tests cover the key-spec parser (valid specs, modifier
+- [x] Unit tests cover the key-spec parser (valid specs, modifier
       combinations, and at least one invalid-spec-falls-back-to-default
       case).
-- [ ] `make test`, `make lint-qml`, and `make validate` pass.
-- [ ] Docs updated (schema + syntax) in the same place as the script-dirs
+- [x] `make test`, `make lint-qml`, and `make validate` pass.
+- [x] Docs updated (schema + syntax) in the same place as the script-dirs
       config, so there's one settings-file reference, not two.
 
 ## Out of scope
@@ -125,5 +125,25 @@ config-read → keymap-resolve → QML-render loop in one pass.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and
-useful follow-ups.
+- Added `config.json` keybinding support in the engine: `list` now returns a
+  resolved `keys` map plus non-fatal `settingsProblems`, and
+  `${OMARCHY_SCRIPTS_HOME}/config.json` is now the documented shared settings
+  location. The parser normalizes hand-edited specs like `ctrl+shift+enter`
+  to canonical forms, accepts single-letter remaps like `j`, and falls back
+  per-action to defaults on invalid entries instead of breaking the menu.
+- Added `omarchy-plugin/KeyModel.js` and rewired `Menu.qml` to use resolved
+  bindings instead of hardcoded `Qt.Key_*` checks. The browse hint line now
+  renders from the resolved keymap, the quick-run affordance shows its current
+  binding next to `▶`, and the detail view surfaces direct `R` / `E` / `D`
+  mnemonics with matching key handlers for Run / Edit / Delete.
+- Live verification was done on the real Hyprland/Quickshell session after
+  `omarchy-restart-shell`, not with `qmllint` alone. With no config file, the
+  menu behaved as before; with a temporary
+  `~/.config/omarchy-scripts/config.json` containing `moveDown: "j"` and
+  `quickRun: "q"`, the UI updated to show `j`/`Q`, `jj` moved the cursor to
+  the second script after restart, `Shift+Enter` left the menu open, and `q`
+  launched the presentation terminal for the selected script. The temporary
+  user config was removed again after verification.
+- Useful follow-up if this grows further: add a small CLI convenience command
+  for editing `config.json` (`config set-key <action> <spec>`) so users do not
+  need to hand-edit JSON for common remaps.
