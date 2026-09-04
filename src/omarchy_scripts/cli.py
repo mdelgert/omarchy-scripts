@@ -58,6 +58,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("validate", help="parse every script and report metadata problems")
 
+    cp = sub.add_parser("config", help="manage settings")
+    csub = cp.add_subparsers(dest="config_command", required=True)
+    csub.add_parser("list-dirs", help="list configured external script directories")
+    ap = csub.add_parser("add-dir", help="add a configured external script directory")
+    ap.add_argument("path")
+    rp = csub.add_parser("remove-dir", help="remove a configured external script directory")
+    rp.add_argument("path")
+
     return p
 
 
@@ -127,6 +135,33 @@ def main(argv: list[str] | None = None) -> int:
             scripts, problems = core.discover(root)
             _emit({"scripts": len(scripts), "problems": problems})
             return 1 if problems else 0
+
+        if args.command == "config":
+            if args.config_command == "list-dirs":
+                _emit({
+                    "configPath": str(core.config_path()),
+                    "scriptDirs": core.list_script_dirs(),
+                })
+                return 0
+
+            if args.config_command == "add-dir":
+                script_dirs = core.add_script_dir(args.path)
+                _emit({
+                    "configPath": str(core.config_path()),
+                    "added": core._normalize_path(args.path, relative_to=Path.cwd()),
+                    "scriptDirs": script_dirs,
+                })
+                return 0
+
+            if args.config_command == "remove-dir":
+                removed = core._normalize_path(args.path, relative_to=Path.cwd())
+                script_dirs = core.remove_script_dir(args.path)
+                _emit({
+                    "configPath": str(core.config_path()),
+                    "removed": removed,
+                    "scriptDirs": script_dirs,
+                })
+                return 0
 
     except core.ScriptError as e:
         _emit({"error": str(e)})

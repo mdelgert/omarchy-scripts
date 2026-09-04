@@ -1,6 +1,6 @@
 # Task: Configurable script directories via a settings file (set by CLI, not GUI)
 
-Status: Ready
+Status: Done
 Type: feature
 
 ## Problem
@@ -63,20 +63,20 @@ one workspace root entirely.
 
 ## What done looks like
 
-- [ ] `omarchy-scripts config add-dir <path>` / `remove-dir` / `list-dirs`
+- [x] `omarchy-scripts config add-dir <path>` / `remove-dir` / `list-dirs`
       work and persist to the JSON config file.
-- [ ] Scripts under a configured extra directory show up in
+- [x] Scripts under a configured extra directory show up in
       `omarchy-scripts list`/`validate` and in the live GUI after a reload,
       tagged with a distinct `source`.
-- [ ] A missing/unreadable configured directory is reported as a problem,
+- [x] A missing/unreadable configured directory is reported as a problem,
       not silently ignored.
-- [ ] Id collisions across 3+ roots follow one documented, tested
+- [x] Id collisions across 3+ roots follow one documented, tested
       precedence rule.
-- [ ] No new GUI surface for editing configuration was added.
-- [ ] Tests cover: adding/removing a dir, discovery picking up scripts from
+- [x] No new GUI surface for editing configuration was added.
+- [x] Tests cover: adding/removing a dir, discovery picking up scripts from
       it, and the missing-directory problem case.
-- [ ] `make test`, `make lint-qml`, and `make validate` pass.
-- [ ] `docs/SCRIPT_SPEC.md`/`docs/ARCHITECTURE.md` document the config
+- [x] `make test`, `make lint-qml`, and `make validate` pass.
+- [x] `docs/SCRIPT_SPEC.md`/`docs/ARCHITECTURE.md` document the config
       file schema and the CLI-configures/GUI-only-reads contract.
 
 ## Out of scope
@@ -97,5 +97,18 @@ at a throwaway config file location; don't touch the developer's real
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and
-useful follow-ups.
+- Added `config.json` support in the Python engine, with `config_path()`,
+  CLI `config list-dirs`/`add-dir`/`remove-dir`, and discovery of ordered
+  extra script roots tagged as `source: "external"`.
+- Kept precedence intentionally simple and documented it in both code and
+  docs: bundled first, workspace second, then configured directories in
+  `scriptDirs` order; first discovered id wins and later collisions become
+  `problems`.
+- Missing, unreadable, or non-directory configured roots now surface in
+  `problems` instead of being skipped. Invalid `config.json` also surfaces as
+  a config-file problem during discovery so `list`/`validate` stay diagnostic.
+- Tests now cover CLI config persistence, external discovery, missing
+  external directories, workspace-vs-external precedence, and configured
+  external directory ordering.
+- No GUI changes were made; the existing frontend remains a read-only
+  consumer of the engine's merged script list.
