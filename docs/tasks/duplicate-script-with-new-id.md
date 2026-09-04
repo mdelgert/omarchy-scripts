@@ -139,6 +139,9 @@ confusing when it happens.
   rejected without writing.
 - `docs/ARCHITECTURE.md`'s CLI command list and JSON-contract paragraph,
   plus `docs/SCRIPT_SPEC.md`'s intro, now mention `copy`.
+- `omarchy-plugin/Menu.qml`'s actions row switched from `Row` to `Flow` for
+  the Run/Edit/Delete/Duplicate group (see Limitations: this was a real bug
+  caught by live verification, not a preemptive change).
 
 **Decisions:**
 - Collision check uses the full `discover()` result (bundled + workspace +
@@ -149,14 +152,28 @@ confusing when it happens.
   two buttons, no text field.
 
 **Limitations:**
-- The QML "Duplicate" action was verified via `qmllint` (no new warning
-  categories beyond the four already documented as pre-existing) and code
-  review against the existing Run/Edit/Delete/New patterns, but **not**
-  manually exercised in a live Hyprland/Omarchy session — this sandbox has
-  no running compositor (`hyprctl` reports "Hyprland not running"), so the
-  testing notes' live-session step (browse-list appearance, keyboard nav,
-  confirming the copy's independent last-run history) is unverified and
-  should be checked by a reviewer with real desktop access.
+- Manually verified in a live Hyprland/Omarchy session on this box
+  (`hyprctl`/`grim`/`omarchy-restart-shell`, screenshots via `grim`): with
+  the initial `Row`-based actions layout, the new "Duplicate" button was
+  silently clipped off the detail card's right edge by the enclosing
+  Flickable's `clip: true` — invisible in the running UI even though
+  `qmllint` and code review both looked correct. Fixed by switching that
+  row to a wrapping `Flow`; confirmed visually afterward that "Duplicate"
+  renders correctly (screenshot) and that `omarchy-scripts copy` run
+  through the actually-installed plugin binary produces the expected file,
+  appears in `list`, and cleans up correctly. Note hot-reload
+  ("Local plugin changed, reloading") did not pick up this structural
+  layout change until a full `omarchy-restart-shell`; if `make lint-qml`/
+  code review look right but a change doesn't appear live, restart the
+  shell before concluding it's broken.
+- Did not click through the on-screen Duplicate prompt overlay itself
+  (typing a new id, Confirm/Cancel) — this sandbox's `hyprctl dispatch`
+  is wrapped by a custom Lua shim that rejects standard dispatcher syntax
+  (e.g. `movecursor`, `workspace`) needed to synthesize a mouse click, and
+  no `wlrctl`/`ydotool` equivalent was available. A reviewer with normal
+  mouse input should click Duplicate → confirm the prefilled `<id>-copy`
+  suggestion and typing a different id both work, Escape/Cancel dismiss
+  without writing a file, and the resulting file opens in `$EDITOR`.
 - `make validate` in this checkout reports one pre-existing, unrelated
   duplicate-id problem from a local machine `scriptDirs` entry
   (`/home/mdelgert/Scripts/greet-user.sh` vs. the bundled `greet-user.sh`);

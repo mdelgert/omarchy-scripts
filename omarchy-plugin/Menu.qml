@@ -788,7 +788,11 @@ Item {
             }
 
             // ---- actions --------------------------------------------------
-            Row {
+            // Flow (not Row) so a narrow detail card wraps Duplicate onto a
+            // second line instead of it being clipped off the right edge by
+            // the enclosing Flickable's clip: true.
+            Flow {
+              width: detailColumn.width
               spacing: Style.spacing.md
 
               Column {
