@@ -23,6 +23,15 @@ The optional supported field is `tags`, a comma-separated list. Whitespace aroun
 # @script.tags network, diagnostics
 ```
 
+One tag value is reserved by the QML plugin, not the engine: `hidden`. A
+script tagged `hidden` (alone or alongside other tags, e.g.
+`# @script.tags network,hidden`) is omitted from the Scripts menu's browse
+list and its type-to-filter search — see `omarchy-plugin/ScriptModel.js`'s
+`rowsFor()`. This is a frontend-only filtering decision: the engine and CLI
+(`list`, `info`, `run`, etc.) are unaffected and continue to discover, list,
+and run a `hidden`-tagged script exactly like any other; only the QML
+browse list hides it from casual browsing.
+
 The parser reads comment lines anywhere in the file, not only a contiguous opening header. It recognizes a line after `#` and surrounding whitespace begins with `@script.`; each metadata value is the text after its key's first space, with surrounding whitespace removed. If a key appears more than once, the last value wins. Unknown `@script.*` keys are retained while parsing but are not part of the normalized v1 output.
 
 ## Parameters
