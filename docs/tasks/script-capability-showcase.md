@@ -36,17 +36,18 @@ real Bash script.
 
 ## What done looks like
 
-- [ ] The new script is discovered with valid metadata and no duplicate ID.
-- [ ] Its normalized metadata exposes one parameter of each v1 type, and all
+- [x] The new script is discovered with valid metadata and no duplicate ID.
+- [x] Its normalized metadata exposes one parameter of each v1 type, and all
       five parameters have defaults, labels, and the intended integer/choice
       constraints.
-- [ ] Running with no explicit values succeeds and visibly demonstrates all
+- [x] Running with no explicit values succeeds and visibly demonstrates all
       defaults.
-- [ ] Running with overridden values demonstrates string, integer, boolean,
+- [x] Running with overridden values demonstrates string, integer, boolean,
       choice, and path values without shell evaluation or file-system writes.
-- [ ] Invalid integer, boolean, and choice values are rejected by the engine;
-      the script itself remains frontend-neutral.
-- [ ] `make test`, `make lint-qml`, and `make validate` meet the project's
+- [x] Malformed integer, boolean, and choice values are rejected by the
+      engine; the script itself remains frontend-neutral. The integer bounds
+      are exposed as frontend metadata, as specified by v1.
+- [x] `make test`, `make lint-qml`, and `make validate` meet the project's
       definition of done.
 
 ## Out of scope
@@ -62,13 +63,21 @@ real Bash script.
 - Exercise `info`/`list` and `run` through the CLI using defaults and a full
   set of overrides.
 - Confirm a path containing spaces is passed and displayed as one value.
-- Confirm out-of-range integers, an invalid boolean, and a choice outside the
-  declared list fail validation before the script runs.
+- Confirm a malformed integer, an invalid boolean, and a choice outside the
+  declared list fail validation before the script runs. The declared integer
+  bounds are frontend hints and are not engine-enforced in v1.
 - If verifying the form manually, confirm each control is populated with its
   metadata default and that the selected values arrive unchanged in output.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and useful
-follow-ups. Set Status to Done after merge, then move the completed file to
-`docs/tasks/done/`.
+Implemented `script-capability-showcase.sh` with one parameter of each v1
+type, defaults for every parameter, and deterministic output that displays the
+values and repeats the configured message. The `output` path is intentionally
+display-only so the demo has no file-system side effects.
+
+The required checks passed: `make test`, `make lint-qml`, and `make validate`.
+The QML lint output retains only the repository's documented warning
+categories. Invalid integer, boolean, and choice values were confirmed to be
+rejected by the engine. The `min`/`max` values remain frontend hints because
+v1 does not enforce them in the engine.
