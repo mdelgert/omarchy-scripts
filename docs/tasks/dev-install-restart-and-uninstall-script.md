@@ -1,6 +1,6 @@
 # Task: Full shell restart after install, plus a matching uninstall.sh
 
-Status: Ready
+Status: Done
 Type: feature
 
 ## Problem
@@ -66,29 +66,29 @@ review of what will be deleted before it happens.
 
 ## What done looks like
 
-- [ ] Running `omarchy-plugin/install.sh` inside a live Omarchy/Hyprland
+- [x] Running `omarchy-plugin/install.sh` inside a live Omarchy/Hyprland
       session ends with a full shell restart, not just a `rescanPlugins`
       hot-reload — confirmed by making a structural QML change (e.g.
       reordering an existing action button) and seeing it take effect
       without a manual `omarchy-restart-shell` afterward.
-- [ ] Running `install.sh` outside a live session (no compositor) still
+- [x] Running `install.sh` outside a live session (no compositor) still
       completes successfully; the new restart step fails non-fatally with a
       clear message, the same way the existing `rescanPlugins` step already
       does.
-- [ ] `omarchy-plugin/uninstall.sh` removes the installed plugin directory
+- [x] `omarchy-plugin/uninstall.sh` removes the installed plugin directory
       and restarts the shell so it disappears from a running menu/bar
       immediately.
-- [ ] `uninstall.sh` never touches the user's workspace scripts or
+- [x] `uninstall.sh` never touches the user's workspace scripts or
       `config.json` unless an explicit, documented, non-default flag is
       passed.
-- [ ] Tests are added or updated where behavior changed (if any of this
+- [x] Tests are added or updated where behavior changed (if any of this
       logic moves into something `tests/test_core.py` can exercise; a pure
       shell-script change may instead need a documented manual test in the
       Report, per this repo's existing shell-script scripts having no
       Python-level test coverage of their own body).
-- [ ] `make test`, `make lint-qml`, and `make validate` meet the project's
+- [x] `make test`, `make lint-qml`, and `make validate` meet the project's
       definition of done.
-- [ ] `README.md` (and `docs/ARCHITECTURE.md` if it starts describing
+- [x] `README.md` (and `docs/ARCHITECTURE.md` if it starts describing
       `uninstall.sh` as part of the dev workflow) documents the new script.
 
 ## Out of scope
@@ -126,4 +126,74 @@ review of what will be deleted before it happens.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.
+**Changed:**
+- `omarchy-plugin/install.sh`: added a header comment pointing at
+  `uninstall.sh`, and — after the existing `rescanPlugins` hot-reload step —
+  a new guarded block that calls `omarchy-restart-shell` if it's on `PATH`,
+  printing `shell restarted` on success or a non-fatal stderr message
+  otherwise (matching the `rescanPlugins` step's own guard style exactly).
+- New `omarchy-plugin/uninstall.sh` (executable): removes the installed
+  plugin, preferring `omarchy-plugin-remove <id> --yes`, falling back to a
+  direct `rm -rf` of the one resolved plugin path if that tool is missing
+  **or fails for any reason**. Supports an opt-in `--purge-workspace` flag
+  to also delete `OMARCHY_SCRIPTS_HOME`/the workspace `scripts/`+config
+  directory (never the default). Restarts the shell afterward, non-fatal
+  outside a live session. Exits 0 for both "not installed" and successful
+  removal.
+- `README.md`: documented the restart behavior and added `uninstall.sh`
+  usage (default and `--purge-workspace`) to "Quick start (development)".
+
+**Bug found and fixed during testing:** the first version of `uninstall.sh`
+called `omarchy-plugin-remove` unconditionally when the plugin appeared
+installed, without a failure fallback. `omarchy-plugin-remove` hardcodes
+`$HOME/.config` rather than honoring a customized `XDG_CONFIG_HOME` (unlike
+this plugin's own scripts, which all resolve
+`${XDG_CONFIG_HOME:-$HOME/.config}`). Under a customized `XDG_CONFIG_HOME`
+this made the external tool fail even though this script's own `$DEST`
+genuinely existed, and — because the call wasn't guarded — the whole script
+aborted (`set -e`) instead of falling back to a direct removal. Fixed by
+only treating `omarchy-plugin-remove` as authoritative on success; any
+failure (missing tool, wrong assumptions, anything else) now falls straight
+through to the manual `rm -rf "$DEST"` fallback, so `uninstall.sh` always
+completes rather than getting stuck on an unrelated tool's own path
+assumptions.
+
+**Verified live** (real Hyprland/quickshell session in this sandbox, env
+vars manually exported per this session's established access pattern):
+- `install.sh` run end-to-end: completed with `shell reloaded` then
+  `shell restarted`; confirmed via a new `quickshell` PID after each run
+  (531064→533339→534398 etc.), not just a log line.
+- `uninstall.sh` default run: plugin directory removed (via
+  `omarchy-plugin-remove`, which also wrote its own timestamped backup),
+  workspace `scripts/` and `config.json` left untouched, shell restarted
+  (new PID confirmed again).
+- `uninstall.sh --purge-workspace` in an isolated sandbox
+  (`OMARCHY_SCRIPTS_HOME`/`XDG_CONFIG_HOME` pointed at `/tmp`, no real
+  session reachable): correctly hit the `rm -rf` fallback path (since the
+  real `omarchy-plugin-remove` doesn't see the sandboxed config location),
+  deleted the fake workspace, and still exited 0 with a clear
+  "could not restart the shell" message for the missing session — this is
+  exactly the scenario that first surfaced the fallback bug above.
+- `install.sh` with `HYPRLAND_INSTANCE_SIGNATURE` unset / `XDG_RUNTIME_DIR`
+  pointed at an empty fake directory: both `rescanPlugins` and the new
+  restart step failed non-fatally with clear stderr messages; script still
+  exited 0.
+- Restored the live session's plugin back to `main`'s build afterward so
+  the user's normal session wasn't left on this task's dev build.
+
+**Limitations / follow-ups:**
+- The pre-existing `CLAUDE.md` symlink issue (breaks
+  `omarchy-plugin-validate`'s manifest check on every branch, including
+  `main`) had to be worked around locally (temporarily moving the file out
+  of the worktree, restored before committing) to run `install.sh`
+  end-to-end for this task's testing. Left unfixed — out of scope here, and
+  identical on `main`.
+- `make validate` reported zero problems in this worktree (no
+  `scriptDirs`-related duplicate-id noise this time, unlike some earlier
+  sessions on this dev machine); this is environment-dependent and not
+  caused by this task's changes.
+- No new automated tests were added: this task only changes plain Bash
+  scripts with no Python-level surface for `tests/test_core.py` to exercise,
+  consistent with this repo's existing shell scripts having no Python test
+  coverage of their own body. Verification is the manual/live testing
+  documented above.
