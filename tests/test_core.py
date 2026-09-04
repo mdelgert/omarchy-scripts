@@ -236,6 +236,48 @@ class TestDiscoveryAndRun(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("using default Down", problems[0])
 
+    def test_set_get_and_unset_key_config_value(self) -> None:
+        value = core.set_config_value("keys.moveDown", "j")
+        self.assertEqual(value, "j")
+        self.assertEqual(core.get_config_value("keys.moveDown"), "j")
+        self.assertEqual(
+            json.loads(core.config_path().read_text(encoding="utf-8")),
+            {"keys": {"moveDown": "j"}},
+        )
+
+        keys, problems = core.resolve_key_bindings()
+        self.assertEqual(problems, [])
+        self.assertEqual(keys["moveDown"], "J")
+
+        self.assertTrue(core.unset_config_value("keys.moveDown"))
+        self.assertIsNone(core.get_config_value("keys.moveDown"))
+        self.assertEqual(
+            json.loads(core.config_path().read_text(encoding="utf-8")),
+            {},
+        )
+        keys, problems = core.resolve_key_bindings()
+        self.assertEqual(problems, [])
+        self.assertEqual(keys["moveDown"], core.KEY_ACTION_DEFAULTS["moveDown"])
+
+    def test_set_script_dirs_normalizes_json_list(self) -> None:
+        extra = self.tmp / "shared"
+        second = self.tmp / "nested" / ".." / "team"
+        value = core.set_config_value(
+            "scriptDirs",
+            [str(extra.relative_to(self.tmp)), str(second)],
+            cwd=self.tmp,
+        )
+        self.assertEqual(
+            value,
+            [str(extra.resolve()), str(second.resolve(strict=False))],
+        )
+        self.assertEqual(core.get_config_value("scriptDirs"), value)
+
+    def test_invalid_key_config_value_is_rejected_without_writing(self) -> None:
+        with self.assertRaisesRegex(core.ScriptError, "invalid key spec"):
+            core.set_config_value("keys.moveDown", "Shift+")
+        self.assertFalse(core.config_path().exists())
+
 
 class TestCliConfig(unittest.TestCase):
     def setUp(self) -> None:
@@ -293,6 +335,57 @@ class TestCliConfig(unittest.TestCase):
             json.loads(core.config_path().read_text(encoding="utf-8")),
             {"scriptDirs": []},
         )
+
+    def test_config_set_get_and_unset_key(self) -> None:
+        code, set_result, stderr = self._run_cli(["config", "set", "keys.moveDown", "j"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(set_result["path"], "keys.moveDown")
+        self.assertEqual(set_result["value"], "j")
+
+        code, get_result, stderr = self._run_cli(["config", "get", "keys.moveDown"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(get_result["value"], "j")
+
+        code, unset_result, stderr = self._run_cli(["config", "unset", "keys.moveDown"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertTrue(unset_result["removed"])
+        self.assertEqual(core.resolve_key_bindings()[0]["moveDown"], core.KEY_ACTION_DEFAULTS["moveDown"])
+
+    def test_config_set_parses_json_for_script_dirs(self) -> None:
+        relative = "shared"
+        absolute = self.tmp / "absolute"
+        expected = [
+            str((Path.cwd() / relative).resolve()),
+            str(absolute.resolve()),
+        ]
+
+        code, result, stderr = self._run_cli(
+            ["config", "set", "scriptDirs", json.dumps([relative, str(absolute)])]
+        )
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(result["value"], expected)
+
+        code, get_result, stderr = self._run_cli(["config", "get", "scriptDirs"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertEqual(get_result["value"], expected)
+
+        code, unset_result, stderr = self._run_cli(["config", "unset", "scriptDirs"])
+        self.assertEqual(code, 0)
+        self.assertEqual(stderr, "")
+        self.assertTrue(unset_result["removed"])
+        self.assertEqual(core.get_config_value("scriptDirs"), [])
+
+    def test_config_set_rejects_invalid_key_spec(self) -> None:
+        code, output, stderr = self._run_cli(["config", "set", "keys.moveDown", "Shift+"])
+        self.assertEqual(code, 2)
+        self.assertIn("invalid key spec", output["error"])
+        self.assertIn("invalid key spec", stderr)
+        self.assertFalse(core.config_path().exists())
 
 
 if __name__ == "__main__":

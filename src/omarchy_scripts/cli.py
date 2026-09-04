@@ -27,6 +27,13 @@ def _emit(data: dict) -> None:
     print(json.dumps({"schemaVersion": core.SCHEMA_VERSION, **data}, indent=2))
 
 
+def _parse_config_value(raw: str) -> object:
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return raw
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="omarchy-scripts")
     sub = p.add_subparsers(dest="command", required=True)
@@ -65,6 +72,13 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("path")
     rp = csub.add_parser("remove-dir", help="remove a configured external script directory")
     rp.add_argument("path")
+    gp = csub.add_parser("get", help="get a config value")
+    gp.add_argument("path")
+    sp = csub.add_parser("set", help="set a config value")
+    sp.add_argument("path")
+    sp.add_argument("value")
+    up = csub.add_parser("unset", help="remove a config value")
+    up.add_argument("path")
 
     return p
 
@@ -160,6 +174,34 @@ def main(argv: list[str] | None = None) -> int:
                     "configPath": str(core.config_path()),
                     "removed": removed,
                     "scriptDirs": script_dirs,
+                })
+                return 0
+
+            if args.config_command == "get":
+                _emit({
+                    "configPath": str(core.config_path()),
+                    "path": args.path,
+                    "value": core.get_config_value(args.path),
+                })
+                return 0
+
+            if args.config_command == "set":
+                _emit({
+                    "configPath": str(core.config_path()),
+                    "path": args.path,
+                    "value": core.set_config_value(
+                        args.path,
+                        _parse_config_value(args.value),
+                        cwd=Path.cwd(),
+                    ),
+                })
+                return 0
+
+            if args.config_command == "unset":
+                _emit({
+                    "configPath": str(core.config_path()),
+                    "path": args.path,
+                    "removed": core.unset_config_value(args.path),
                 })
                 return 0
 
