@@ -13,12 +13,14 @@ What **you, the human**, get and do. Nothing more than this.
 
 1. **"Kick off `<task-name>`"** — starts it. You never create a branch,
    worktree, or slug yourself.
-2. **"Merge `<PR>`"** — merges it, deletes the branch, moves the task file
-   to `docs/tasks/done/`, and updates its `Status: Done`. One sentence, one
-   action, all of that happens as a result.
-3. If you'd rather it be re-tested before merging instead of just merged on
-   trust, say **"verify and merge `<PR>`"** instead of "merge" — same one
-   sentence, just does the extra check first.
+2. **"Merge `<PR>`"** (or just **"yes"** after being asked) — this always
+   re-verifies first: re-runs the test suite in a throwaway worktree and
+   manually exercises the actual change (running the new/changed script or
+   CLI command against a real, often isolated, config so nothing gets
+   trusted from the PR description alone), *then* merges, deletes the
+   branch, moves the task file to `docs/tasks/done/`, and sets
+   `Status: Done`. One sentence, one action — verification is not a
+   separate thing you need to ask for.
 
 That's the whole process. You are never expected to type git/gh commands,
 branch names, or a task slug — if that's ever what's happening, something
