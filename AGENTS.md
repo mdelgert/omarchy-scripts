@@ -2,7 +2,7 @@
 
 ## Standing rules
 
-Before an architectural, contract, metadata, engine, or frontend change, read `docs/VISION.md`, `docs/ARCHITECTURE.md`, and `docs/SCRIPT_SPEC.md`. Read the assigned `docs/tasks/<slug>.md` too, when one exists.
+Before an architectural, contract, metadata, engine, or frontend change, read `docs/VISION.md`, `docs/ARCHITECTURE.md`, and `docs/SCRIPT_SPEC.md`. Read the assigned `docs/tasks/<slug>.md` too, when one exists, and read `skills/task-workflow/SKILL.md` before claiming or working any task — it defines how branching, worktrees, claiming, and PRs coordinate multiple agents on this repo.
 
 - Keep the Python engine frontend-neutral; CLI and QML consume its normalized, versioned JSON rather than parsing script comments themselves.
 - Scripts are plain Bash files. There is no required action-dispatch or undo protocol in v1, and parameter metadata is never shell-expanded.
