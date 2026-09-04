@@ -47,16 +47,18 @@ Concrete, copy-pasteable examples (exactly what to type):
 ```
 
 Do a review in its own branch (so `--fix` doesn't touch `main`):
+Do a review in its own branch (so `--fix` doesn't touch `main`) — one
+streamlined command that creates the branch **and** starts the review,
+using `claude`'s `prompt` argument to submit the slash command for you the
+moment the interactive session opens:
 
 ```bash
-git checkout -b code-review/high-fix
+git checkout -b code-review/high-fix && claude "/code-review high --fix"
 ```
 
-then, inside the interactive session:
-
-```
-/code-review high --fix
-```
+(Without a trailing argument, `claude "/code-review ..."` still opens an
+*interactive* session — it just pre-submits the prompt — so `ultra` still
+counts as user-triggered.)
 
 `/code-review ultra` is user-triggered and billed — an agent cannot launch
 it on your behalf via Bash or otherwise; you must type it yourself.
