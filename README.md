@@ -74,6 +74,7 @@ Try the engine directly from this checkout:
 
 ## Example scripts
 
+- [`configure-omarchy-scripts.sh`](scripts/examples/configure-omarchy-scripts.sh) updates key bindings and extra script directories, and prints the resulting configuration.
 - [`greet-user.sh`](scripts/examples/greet-user.sh) shows declared string and boolean parameters, plus the optional argument helper.
 - [`hostname-info.sh`](scripts/examples/hostname-info.sh) is a no-parameter diagnostics script: it prints host, route, address, and DNS information.
 - [`largest-directories.sh`](scripts/examples/largest-directories.sh) shows `path` and bounded integer metadata, including a runtime `$HOME` default.
