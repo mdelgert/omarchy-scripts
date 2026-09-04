@@ -2,6 +2,8 @@
 
 A v1 script is a Bash file discovered by the engine. Metadata is read from comment lines; it describes the script but is not evaluated. The engine runs a selected script as `bash <path>` and passes declared values as `--name value` argv pairs. There are no required `check`, `apply`, or `undo` commands.
 
+`omarchy-scripts copy <id> <new-id>` duplicates an existing script's file into the workspace under a new, unique id (validated the same kebab-case shape and cross-discovery uniqueness every `@script.id` already requires), rewriting only the copy's `@script.id` (and `@script.title`, appending " (copy)") lines — see `docs/ARCHITECTURE.md`'s CLI command list for the full command set.
+
 ## Metadata
 
 All required fields must have a non-empty value:

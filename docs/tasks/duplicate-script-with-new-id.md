@@ -1,6 +1,6 @@
 # Task: Duplicate an existing script under a new, unique id
 
-Status: Ready
+Status: Done
 Type: feature
 
 ## Problem
@@ -56,23 +56,23 @@ confusing when it happens.
 
 ## What done looks like
 
-- [ ] `omarchy-scripts copy <id> <new-id>` produces a new file in the
+- [x] `omarchy-scripts copy <id> <new-id>` produces a new file in the
       workspace scripts directory with only `@script.id` (and title, if
       implemented) changed from the source, and the CLI reports success
       with a `path` in its JSON output.
-- [ ] Attempting to copy to an id that already exists anywhere in
+- [x] Attempting to copy to an id that already exists anywhere in
       discovery fails clearly, before writing any file.
-- [ ] An invalid new id (fails the existing kebab-case rule) is rejected
+- [x] An invalid new id (fails the existing kebab-case rule) is rejected
       the same way any other bad script id already is, without writing a
       file.
-- [ ] The QML detail view has a "Duplicate" action producing the same
+- [x] The QML detail view has a "Duplicate" action producing the same
       result as the CLI, and opens the new file for editing.
-- [ ] Tests are added covering the success, id-collision, and
+- [x] Tests are added covering the success, id-collision, and
       invalid-id-shape cases, plus confirming the source file is
       untouched.
-- [ ] `make test`, `make lint-qml`, and `make validate` meet the
+- [x] `make test`, `make lint-qml`, and `make validate` meet the
       project's definition of done.
-- [ ] `docs/ARCHITECTURE.md` and `docs/SCRIPT_SPEC.md` mention the new
+- [x] `docs/ARCHITECTURE.md` and `docs/SCRIPT_SPEC.md` mention the new
       `copy` command alongside the existing CLI command list.
 
 ## Out of scope
@@ -110,4 +110,74 @@ confusing when it happens.
 
 ## Report
 
-Fill in when finished: what changed, decisions made, limitations, and useful follow-ups. Set Status to Done after merge, then move the completed file to `docs/tasks/done/`.
+**What changed:**
+- `src/omarchy_scripts/core.py`: new `duplicate(engine_root, script_id, new_id)`.
+  Validates `new_id` against `ID_RE`, resolves the source via `find()`,
+  rejects a collision against `discover()`'s full result, writes the copy
+  into `workspace_root() / "scripts" / "<new_id>.sh"`, and preserves the
+  source file's permission bits (`chmod` copied from the source's mode).
+  Only lines whose parsed `@script.` key is `id` or `title` are rewritten
+  (`id` replaced outright; `title` gets " (copy)" appended); every other
+  line, including other `@script.*`/`@param` lines and the script body, is
+  copied byte-for-byte.
+- `src/omarchy_scripts/cli.py`: new `copy <id> <new-id>` subcommand,
+  emitting `{"path": ...}` the same shape as `new`.
+- `omarchy-plugin/ScriptEngine.qml`: `duplicateScript(id, newId)` runs
+  `copy`, then on success calls `editInTerminal()` + `reload()` (same
+  fire-and-forget pattern as `newScript()`).
+- `omarchy-plugin/Menu.qml`: a "Duplicate" button next to Run/Edit/Delete
+  opens a small bespoke prompt overlay (ConfirmDialog has no text-input
+  support) prefilled via `suggestDuplicateId()` (`<id>-copy`, then
+  `-copy-2`, `-copy-3`, ... if taken). Confirm calls
+  `scriptEngine.duplicateScript()` then closes the menu, matching how
+  "+ New script" already behaves — including inheriting the same
+  fire-and-forget tradeoff of not blocking on the async result before
+  closing.
+- Tests added to `tests/test_core.py`'s `TestDiscoveryAndRun`: successful
+  duplicate (file content/perms, source untouched, both ids discoverable),
+  id-collision rejected without writing, and four invalid-new-id shapes
+  rejected without writing.
+- `docs/ARCHITECTURE.md`'s CLI command list and JSON-contract paragraph,
+  plus `docs/SCRIPT_SPEC.md`'s intro, now mention `copy`.
+- `omarchy-plugin/Menu.qml`'s actions row switched from `Row` to `Flow` for
+  the Run/Edit/Delete/Duplicate group (see Limitations: this was a real bug
+  caught by live verification, not a preemptive change).
+
+**Decisions:**
+- Collision check uses the full `discover()` result (bundled + workspace +
+  external), not just the workspace directory, matching the task's "id
+  must be globally unique across discovery" framing.
+- The QML prompt is a hand-built overlay rather than extending
+  `ConfirmDialog`, since that shared component only supports a message and
+  two buttons, no text field.
+
+**Limitations:**
+- Manually verified in a live Hyprland/Omarchy session on this box
+  (`hyprctl`/`grim`/`omarchy-restart-shell`, screenshots via `grim`): with
+  the initial `Row`-based actions layout, the new "Duplicate" button was
+  silently clipped off the detail card's right edge by the enclosing
+  Flickable's `clip: true` — invisible in the running UI even though
+  `qmllint` and code review both looked correct. Fixed by switching that
+  row to a wrapping `Flow`; confirmed visually afterward that "Duplicate"
+  renders correctly (screenshot) and that `omarchy-scripts copy` run
+  through the actually-installed plugin binary produces the expected file,
+  appears in `list`, and cleans up correctly. Note hot-reload
+  ("Local plugin changed, reloading") did not pick up this structural
+  layout change until a full `omarchy-restart-shell`; if `make lint-qml`/
+  code review look right but a change doesn't appear live, restart the
+  shell before concluding it's broken.
+- Did not click through the on-screen Duplicate prompt overlay itself
+  (typing a new id, Confirm/Cancel) — this sandbox's `hyprctl dispatch`
+  is wrapped by a custom Lua shim that rejects standard dispatcher syntax
+  (e.g. `movecursor`, `workspace`) needed to synthesize a mouse click, and
+  no `wlrctl`/`ydotool` equivalent was available. A reviewer with normal
+  mouse input should click Duplicate → confirm the prefilled `<id>-copy`
+  suggestion and typing a different id both work, Escape/Cancel dismiss
+  without writing a file, and the resulting file opens in `$EDITOR`.
+- `make validate` in this checkout reports one pre-existing, unrelated
+  duplicate-id problem from a local machine `scriptDirs` entry
+  (`/home/mdelgert/Scripts/greet-user.sh` vs. the bundled `greet-user.sh`);
+  confirmed identical on `main` before this change, so it is not a
+  regression from this task.
+
+**Follow-ups:** none identified beyond the task's own "Out of scope" list.

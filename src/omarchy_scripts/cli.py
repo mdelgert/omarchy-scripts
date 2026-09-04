@@ -63,6 +63,10 @@ def build_parser() -> argparse.ArgumentParser:
     dp = sub.add_parser("delete", help="delete a script's file")
     dp.add_argument("id")
 
+    cop = sub.add_parser("copy", help="duplicate a script into the workspace under a new id")
+    cop.add_argument("id")
+    cop.add_argument("new_id")
+
     sub.add_parser("validate", help="parse every script and report metadata problems")
 
     cp = sub.add_parser("config", help="manage settings")
@@ -144,6 +148,11 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "delete":
             path = core.delete(root, args.id)
             _emit({"deleted": path})
+            return 0
+
+        if args.command == "copy":
+            path = core.duplicate(root, args.id, args.new_id)
+            _emit({"path": path})
             return 0
 
         if args.command == "validate":

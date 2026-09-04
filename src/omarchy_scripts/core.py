@@ -789,6 +789,55 @@ def delete(engine_root: Path, script_id: str) -> str:
     return script.path
 
 
+def duplicate(engine_root: Path, script_id: str, new_id: str) -> str:
+    """Copy an existing script into the workspace under a new, unique id.
+
+    Only the copied file's `@script.id` (and `@script.title`, appending
+    " (copy)") lines are rewritten; everything else is byte-for-byte
+    identical to the source. Rejects a malformed or already-taken new id
+    before writing anything — never a silent overwrite, matching how
+    discover() already reports a duplicate id as a problem rather than
+    shadowing it.
+    """
+    if not ID_RE.match(new_id):
+        raise ScriptError(f"@script.id {new_id!r} must be lowercase kebab-case")
+
+    script = find(engine_root, script_id)
+
+    existing, _ = discover(engine_root)
+    if any(s.id == new_id for s in existing):
+        raise ScriptError(f"script id {new_id!r} already exists")
+
+    root = workspace_root() / "scripts"
+    root.mkdir(parents=True, exist_ok=True)
+    target = root / f"{new_id}.sh"
+    if target.exists():
+        raise ScriptError(f"target file already exists: {target}")
+
+    source_path = Path(script.path)
+    lines = source_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    out_lines = []
+    for line in lines:
+        stripped = line.strip()
+        body = stripped[1:].strip() if stripped.startswith("#") else None
+        if body is not None and body.startswith(META_PREFIX):
+            key, sep, value = body[len(META_PREFIX):].partition(" ")
+            key = key.strip()
+            if key == "id":
+                newline = "\n" if line.endswith("\n") else ""
+                out_lines.append(f"# @script.id {new_id}{newline}")
+                continue
+            if key == "title":
+                newline = "\n" if line.endswith("\n") else ""
+                out_lines.append(f"# @script.title {value.strip()} (copy){newline}")
+                continue
+        out_lines.append(line)
+
+    target.write_text("".join(out_lines), encoding="utf-8")
+    target.chmod(source_path.stat().st_mode & 0o777)
+    return str(target)
+
+
 NEW_SCRIPT_TEMPLATE = """#!/usr/bin/env bash
 # @script.id {id}
 # @script.title New script

@@ -34,6 +34,9 @@ Item {
   property string filterText: ""
   property var paramValues: ({})
   property bool confirmingDelete: false
+  property bool confirmingDuplicate: false
+  property string duplicateIdText: ""
+  property string duplicateError: ""
   // Set by openScript(id, true) — a required-parameter script opened via
   // the browse list's quick-activate shortcut. Consumed by
   // tryFocusFirstParam() once scriptEngine.script (fetched asynchronously)
@@ -55,6 +58,7 @@ Item {
   function close() {
     root.opened = false
     root.confirmingDelete = false
+    root.confirmingDuplicate = false
   }
 
   function ping() { return "ok" }
@@ -63,6 +67,7 @@ Item {
   function openScript(id, focusFirstParam) {
     root.paramValues = ({})
     root.confirmingDelete = false
+    root.confirmingDuplicate = false
     scriptEngine.select(id)
     root.view = "detail"
     if (focusFirstParam) {
@@ -107,6 +112,7 @@ Item {
   function goBrowse() {
     root.view = "browse"
     root.confirmingDelete = false
+    root.confirmingDuplicate = false
     scriptEngine.select("")
     Qt.callLater(function() { keyCatcher.forceActiveFocus() })
   }
@@ -164,6 +170,35 @@ Item {
   function requestDeleteSelectedScript() {
     if (!scriptEngine.selectedId) return
     root.confirmingDelete = true
+  }
+
+  // Auto-suggests "<id>-copy", falling back to "<id>-copy-2", "-3", ... if
+  // that id is already taken by a discovered script, so the prompt usually
+  // needs no edit before Confirm.
+  function suggestDuplicateId(id) {
+    var taken = {}
+    for (var i = 0; i < scriptEngine.scripts.length; i++) taken[scriptEngine.scripts[i].id] = true
+    var candidate = id + "-copy"
+    var n = 2
+    while (taken[candidate]) {
+      candidate = id + "-copy-" + n
+      n += 1
+    }
+    return candidate
+  }
+
+  function requestDuplicateSelectedScript() {
+    if (!scriptEngine.selectedId) return
+    root.duplicateIdText = root.suggestDuplicateId(scriptEngine.selectedId)
+    root.duplicateError = ""
+    root.confirmingDuplicate = true
+  }
+
+  function confirmDuplicateSelectedScript() {
+    if (!scriptEngine.selectedId || !root.duplicateIdText) return
+    root.confirmingDuplicate = false
+    scriptEngine.duplicateScript(scriptEngine.selectedId, root.duplicateIdText)
+    root.close()
   }
 
   function setFilter(text) {
@@ -297,6 +332,17 @@ Item {
         Keys.onPressed: function(event) {
           if (confirmingDelete) {
             if (confirmDialog.handleKey(event)) event.accepted = true
+            return
+          }
+          if (confirmingDuplicate) {
+            // duplicateField normally owns focus and handles typing/Enter/
+            // Escape itself; this only guards against a stray global
+            // shortcut (R/E/D/...) firing if focus ever lands elsewhere
+            // while the prompt is open.
+            if (event.key === Qt.Key_Escape) {
+              root.confirmingDuplicate = false
+              event.accepted = true
+            }
             return
           }
           if (KeyModel.matches(root.keyBindings.back, event)) {
@@ -742,7 +788,11 @@ Item {
             }
 
             // ---- actions --------------------------------------------------
-            Row {
+            // Flow (not Row) so a narrow detail card wraps Duplicate onto a
+            // second line instead of it being clipped off the right edge by
+            // the enclosing Flickable's clip: true.
+            Flow {
+              width: detailColumn.width
               spacing: Style.spacing.md
 
               Column {
@@ -794,6 +844,16 @@ Item {
                   color: Qt.darker(root.foreground, 1.4)
                   font.family: root.fontFamily
                   font.pixelSize: Style.font.caption
+                }
+              }
+
+              Column {
+                spacing: Style.spacing.xxs
+
+                Button {
+                  text: "Duplicate"
+                  tooltipText: "Copies this script into your workspace under a new id and opens it for editing"
+                  onClicked: root.requestDuplicateSelectedScript()
                 }
               }
             }
@@ -864,6 +924,97 @@ Item {
             scriptEngine.deleteScript(scriptEngine.selectedId)
             root.goBrowse()
           }
+        }
+
+        // ---- duplicate prompt -------------------------------------------------
+        // No shared dialog component takes free text input, so this is a small
+        // bespoke overlay rather than reusing ConfirmDialog: a suggested new id
+        // (see suggestDuplicateId()) prefilled and editable, Confirm/Cancel.
+        Item {
+          id: duplicateDialog
+          anchors.fill: parent
+          visible: root.confirmingDuplicate
+
+          Rectangle {
+            anchors.fill: parent
+            color: Util.alpha(Color.background, 0.7)
+            MouseArea { anchors.fill: parent; onClicked: root.confirmingDuplicate = false }
+
+            BorderSurface {
+              id: duplicateCard
+              width: Math.min(parent.width - Style.space(32), Style.space(370))
+              height: duplicateCard.contentTopInset + duplicateCard.contentBottomInset
+                + duplicateMessage.implicitHeight + Style.spacing.sm + duplicateField.implicitHeight
+                + (root.duplicateError ? (Style.spacing.xs + duplicateErrorText.implicitHeight) : 0)
+                + Style.spacing.md + Style.space(34)
+              anchors.centerIn: parent
+              color: root.background
+              borderSpec: Border.flat(Color.accent, Style.normalBorderWidth)
+              padding: Style.space(18)
+              radius: Style.cornerRadius
+
+              MouseArea { anchors.fill: parent; onClicked: {} }
+
+              Column {
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.leftMargin: duplicateCard.contentLeftInset
+                anchors.rightMargin: duplicateCard.contentRightInset
+                anchors.topMargin: duplicateCard.contentTopInset
+                spacing: Style.spacing.sm
+
+                Text {
+                  id: duplicateMessage
+                  textFormat: Text.PlainText
+                  width: parent.width
+                  text: scriptEngine.script ? ("Duplicate " + scriptEngine.script.title + " as:") : ""
+                  color: root.foreground
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.title
+                  wrapMode: Text.WordWrap
+                }
+
+                TextField {
+                  id: duplicateField
+                  width: parent.width
+                  text: root.duplicateIdText
+                  onTextChanged: root.duplicateIdText = text
+                  Keys.onEscapePressed: root.confirmingDuplicate = false
+                  onAccepted: root.confirmDuplicateSelectedScript()
+                }
+
+                Text {
+                  id: duplicateErrorText
+                  textFormat: Text.PlainText
+                  width: parent.width
+                  visible: !!root.duplicateError
+                  text: root.duplicateError
+                  color: Color.urgent
+                  font.family: root.fontFamily
+                  font.pixelSize: Style.font.caption
+                  wrapMode: Text.WordWrap
+                }
+
+                Row {
+                  anchors.right: parent.right
+                  spacing: Style.space(10)
+
+                  Button {
+                    text: "Cancel"
+                    onClicked: root.confirmingDuplicate = false
+                  }
+
+                  Button {
+                    text: "Duplicate"
+                    onClicked: root.confirmDuplicateSelectedScript()
+                  }
+                }
+              }
+            }
+          }
+
+          onVisibleChanged: if (visible) Qt.callLater(function() { duplicateField.forceActiveFocus(); duplicateField.selectAll() })
         }
       }
     }

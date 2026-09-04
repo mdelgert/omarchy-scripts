@@ -491,6 +491,49 @@ class TestDiscoveryAndRun(unittest.TestCase):
         core.delete(self.engine_root, "sample-script")
         self.assertFalse(path.exists())
 
+    def test_duplicate_creates_workspace_copy_with_new_id_and_title(self) -> None:
+        source_path = self._write(self.engine_root / "scripts", "a.sh", SIMPLE_SCRIPT)
+        source_path.chmod(0o755)
+        result_path = core.duplicate(self.engine_root, "sample-script", "sample-script-2")
+        target = self.workspace / "scripts" / "sample-script-2.sh"
+        self.assertEqual(result_path, str(target))
+        self.assertTrue(target.exists())
+
+        # Source is untouched.
+        self.assertIn("@script.id sample-script\n", source_path.read_text(encoding="utf-8"))
+        self.assertTrue(os.access(source_path, os.X_OK))
+
+        text = target.read_text(encoding="utf-8")
+        self.assertIn("@script.id sample-script-2\n", text)
+        self.assertIn("@script.title Sample script (copy)\n", text)
+        # Executable bit preserved; everything else byte-identical apart
+        # from the two rewritten metadata lines.
+        self.assertTrue(os.access(target, os.X_OK))
+        source_lines = source_path.read_text(encoding="utf-8").splitlines()
+        target_lines = text.splitlines()
+        for src_line, tgt_line in zip(source_lines, target_lines):
+            if src_line.strip().startswith("# @script.id") or src_line.strip().startswith("# @script.title"):
+                continue
+            self.assertEqual(src_line, tgt_line)
+
+        scripts, problems = core.discover(self.engine_root)
+        self.assertEqual(problems, [])
+        self.assertEqual(sorted(s.id for s in scripts), ["sample-script", "sample-script-2"])
+
+    def test_duplicate_rejects_id_collision_without_writing(self) -> None:
+        self._write(self.engine_root / "scripts", "a.sh", SIMPLE_SCRIPT)
+        with self.assertRaisesRegex(core.ScriptError, "already exists"):
+            core.duplicate(self.engine_root, "sample-script", "sample-script")
+        target = self.workspace / "scripts" / "sample-script.sh"
+        self.assertFalse(target.exists())
+
+    def test_duplicate_rejects_invalid_new_id_shape_without_writing(self) -> None:
+        self._write(self.engine_root / "scripts", "a.sh", SIMPLE_SCRIPT)
+        for bad_id in ("Sample-Script", "sample--script", "", "sample_script"):
+            with self.assertRaisesRegex(core.ScriptError, "kebab-case"):
+                core.duplicate(self.engine_root, "sample-script", bad_id)
+        self.assertFalse((self.workspace / "scripts").exists())
+
     def test_resolve_key_bindings_uses_configured_value(self) -> None:
         self.workspace.mkdir(parents=True, exist_ok=True)
         core.config_path().write_text(
