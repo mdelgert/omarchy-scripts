@@ -1,6 +1,6 @@
 # Task: Configurable script directories via a settings file (set by CLI, not GUI)
 
-Status: Draft
+Status: Ready
 Type: feature
 
 ## Problem
