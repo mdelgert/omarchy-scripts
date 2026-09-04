@@ -4,7 +4,14 @@ What **you, the human**, get and do. Nothing more than this.
 
 ## What you get
 
-- A notification that a task's pull request is open, with a link.
+- A notification that a task's pull request is open, with a link, a
+  summary of what it does, and the offer to verify and merge it.
+- By default that verify-and-merge happens right away, without a
+  separate "yes"/"merge" round-trip: re-run the test suite in a
+  throwaway worktree, manually exercise the actual change (run the
+  new/changed script or CLI command for real, not just trust the PR
+  description), then merge, delete the branch, move the task file to
+  `docs/tasks/done/`, and set `Status: Done`.
 - The PR itself already has the implementation, passing
   `make test`/`make lint-qml`/`./bin/omarchy-scripts validate`, and the
   task file's Report section filled in.
@@ -13,14 +20,10 @@ What **you, the human**, get and do. Nothing more than this.
 
 1. **"Kick off `<task-name>`"** — starts it. You never create a branch,
    worktree, or slug yourself.
-2. **"Merge `<PR>`"** (or just **"yes"** after being asked) — this always
-   re-verifies first: re-runs the test suite in a throwaway worktree and
-   manually exercises the actual change (running the new/changed script or
-   CLI command against a real, often isolated, config so nothing gets
-   trusted from the PR description alone), *then* merges, deletes the
-   branch, moves the task file to `docs/tasks/done/`, and sets
-   `Status: Done`. One sentence, one action — verification is not a
-   separate thing you need to ask for.
+2. Say **"hold off"** (or similar) only if you want to review the PR
+   yourself before it's merged. Otherwise you don't need to say
+   anything else — a "yes"/"merge `<PR>`" is still honored the same way
+   if you'd rather explicitly trigger it, but it is no longer required.
 
 That's the whole process. You are never expected to type git/gh commands,
 branch names, or a task slug — if that's ever what's happening, something
