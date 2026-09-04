@@ -1,6 +1,6 @@
 # Task: stop shipping a symlink that breaks `omarchy plugin add`
 
-Status: Ready
+Status: In progress
 Type: bug
 
 ## Problem
