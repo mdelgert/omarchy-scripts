@@ -1,6 +1,6 @@
 # Task: Configurable menu keybindings + on-screen key hints
 
-Status: Draft
+Status: Ready
 Type: feature
 
 ## Problem
